@@ -19,4 +19,4 @@ It's a single file with no build step: open `index.html` in a browser. It works 
 
 ## Playing online
 
-The game is published with GitHub Pages at https://pdobson1.github.io/toast-simulator/. The workflow in `.github/workflows/pages.yml` redeploys it on every push to `main`.
+The game is published with GitHub Pages at https://pdobson1.github.io/toast-simulator/, straight from the `main` branch. Every push to `main` redeploys it.
