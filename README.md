@@ -16,3 +16,7 @@ Push the lever, watch the needle, and pop the toast inside the yellow brackets f
 ## Running it
 
 It's a single file with no build step: open `index.html` in a browser. It works on desktop and phones. Progress is saved in the browser's local storage. The two fonts (Press Start 2P and VT323) load from Google Fonts, with fallbacks when offline.
+
+## Playing online
+
+The game is published with GitHub Pages at https://pdobson1.github.io/toast-simulator/. The workflow in `.github/workflows/pages.yml` redeploys it on every push to `main`.
