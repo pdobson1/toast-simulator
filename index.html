@@ -1,0 +1,1191 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+/* Page reset */
+html, body { margin: 0; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[hidden] { display: none !important; }
+</style>
+<title>Toast Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+/* Layout: one console, screen on top, controls under it, three shop panels below. Single dark look: a 16-bit cartridge, every colour on the Mega Drive's 9-bit grid. */
+:root {
+  --void: #000024;
+  --panel: #242449;
+  --panel-hi: #49496d;
+  --edge: #6d6db6;
+  --ink: #dbdbff;
+  --dim: #9292b6;
+  --butter: #ffdb49;
+  --crust: #db6d00;
+  --jam: #db2424;
+  --go: #49db6d;
+  --btn: #2449b6;
+  --btn-hi: #6d92ff;
+  --btn-lo: #000049;
+  --pixel: "Press Start 2P", "Courier New", monospace;
+  --body: "VT323", "Courier New", monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--void); color: var(--ink); }
+body {
+  font-family: var(--body);
+  font-size: 20px;
+  line-height: 1.2;
+  background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px);
+}
+.wrap { max-width: 960px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; display: flex; flex-direction: column; gap: 16px; }
+
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; }
+h1 {
+  font-family: var(--pixel); font-weight: 400; margin: 0; line-height: 1.1;
+  font-size: clamp(20px, 5vw, 38px); letter-spacing: 1px;
+  background: linear-gradient(180deg, #ffff92 0%, var(--butter) 40%, var(--crust) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(3px 3px 0 #6d2400) drop-shadow(2px 2px 0 var(--void));
+  text-wrap: balance;
+}
+.tag { margin: 0; font-family: var(--pixel); font-size: 9px; letter-spacing: 1px; color: var(--dim); line-height: 1.6; }
+
+.screen {
+  background: #000;
+  border: 4px solid var(--panel-hi);
+  box-shadow: inset 0 0 0 2px var(--void), 0 0 0 2px var(--void), 6px 6px 0 var(--void);
+  padding: 6px;
+}
+canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; image-rendering: pixelated; image-rendering: crisp-edges; cursor: pointer; touch-action: manipulation; }
+
+.console {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: stretch;
+  background: var(--panel); border: 2px solid var(--edge); padding: 10px;
+}
+.stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); min-width: 0; }
+.abbr { display: none; }
+.stat.score .v { font-size: 18px; color: #ffffff; }
+.life { display: inline-block; width: 12px; height: 11px; margin-right: 4px; box-sizing: border-box; vertical-align: middle;
+  background: #db9249; border: 2px solid #924924; border-radius: 4px 4px 1px 1px; }
+.life.gone { background: transparent; border-color: var(--panel-hi); }
+.when { font-family: var(--pixel); font-size: 8px; color: var(--dim); }
+.stat { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 4px 8px; border-left: 2px solid var(--panel-hi); }
+.stat:first-child { border-left: 0; }
+.v small { font-size: 9px; color: var(--dim); margin-left: 6px; }
+.k { font-family: var(--pixel); font-size: 8px; letter-spacing: 1px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v { font-family: var(--pixel); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat.tp .v { color: var(--butter); font-size: 18px; }
+.actions { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+
+button {
+  font-family: var(--pixel); font-size: 10px; letter-spacing: 1px; line-height: 1.4;
+  color: #ffffff; background: var(--btn);
+  border: 0; padding: 10px 12px; cursor: pointer;
+  box-shadow: inset 2px 2px 0 var(--btn-hi), inset -2px -2px 0 var(--btn-lo), 0 0 0 2px var(--void);
+}
+button:active:not(:disabled) { box-shadow: inset -2px -2px 0 var(--btn-hi), inset 2px 2px 0 var(--btn-lo), 0 0 0 2px var(--void); transform: translate(1px, 1px); }
+button:focus-visible { outline: 2px solid var(--butter); outline-offset: 3px; }
+button:disabled { background: var(--panel-hi); color: var(--dim); box-shadow: 0 0 0 2px var(--void); cursor: default; }
+#act { min-width: 150px; font-size: 12px; background: var(--jam); box-shadow: inset 2px 2px 0 #ff6d6d, inset -2px -2px 0 #6d0000, 0 0 0 2px var(--void); }
+#act.pop { background: #db9200; box-shadow: inset 2px 2px 0 #ffdb49, inset -2px -2px 0 #6d2400, 0 0 0 2px var(--void); }
+#act:disabled { background: var(--panel-hi); box-shadow: 0 0 0 2px var(--void); }
+
+.how { margin: 0; color: var(--dim); max-width: 70ch; }
+.how b { color: var(--butter); font-weight: 400; }
+
+.shops { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; align-items: start; }
+.shop { background: var(--panel); border: 2px solid var(--edge); min-width: 0; }
+.shop h2 {
+  margin: 0; padding: 10px 12px; font-family: var(--pixel); font-weight: 400; font-size: 11px; letter-spacing: 2px;
+  background: repeating-linear-gradient(90deg, var(--panel-hi) 0 4px, var(--panel) 4px 8px);
+  border-bottom: 2px solid var(--edge); color: var(--butter);
+}
+.shop ul { list-style: none; margin: 0; padding: 0; }
+.shop li { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px; border-top: 2px solid var(--void); align-items: center; }
+.shop li:first-child { border-top: 0; }
+.shop li.current { background: #242460; }
+.nm { font-family: var(--pixel); font-size: 10px; line-height: 1.5; min-width: 0; }
+.shop li.current .nm { color: var(--butter); }
+.blurb { grid-column: 1 / -1; color: var(--ink); font-size: 19px; }
+.facts { grid-column: 1 / -1; color: var(--dim); font-size: 17px; }
+.shop li.locked .nm, .shop li.locked .blurb { color: var(--dim); }
+.shop button { font-size: 8px; padding: 8px 10px; white-space: nowrap; }
+
+footer { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+footer .small { color: var(--dim); font-size: 17px; margin-left: auto; }
+
+button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+canvas { touch-action: none; -webkit-tap-highlight-color: transparent; }
+.screen, .console { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+.shopbtn, .sheet-bar { display: none; }
+.sheet { display: flex; flex-direction: column; gap: 16px; }
+.badge { background: var(--jam); color: #ffffff; font-size: 8px; padding: 3px 5px; margin-left: 8px; }
+
+/* Phones and short screens: a game console. The kitchen fills the screen, the controls sit under it,
+   and the shops open as a full-screen sheet from the UPGRADES button. */
+@media (max-width: 640px), (max-height: 500px) {
+  .wrap { min-height: 100dvh; box-sizing: border-box; padding-block: 10px; gap: 10px; }
+  header { flex-wrap: nowrap; align-items: center; }
+  h1 { font-size: 16px; filter: drop-shadow(2px 2px 0 #6d2400); }
+  .tag { display: none; }
+  .shopbtn { display: inline-flex; align-items: center; flex: none; }
+  .screen { padding: 0; border-width: 3px; box-shadow: 0 0 0 2px var(--void); margin-block: auto; }
+  .console { padding: 8px; gap: 8px; }
+  .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .stat.extra, .long { display: none; }
+  .abbr { display: inline; }
+  .stat { padding: 2px 6px; }
+  .stat .v { font-size: 13px; }
+  .stat .v, .stat.tp .v, .stat.score .v { font-size: 12px; }
+  .life { width: 10px; height: 10px; margin-right: 3px; }
+  .sheet { display: none; position: fixed; inset: 0; z-index: 20; overflow-y: auto; background: var(--void);
+    padding: 0 16px calc(24px + env(safe-area-inset-bottom, 0px)); gap: 14px; }
+  .sheet.open { display: flex; }
+  .sheet-bar { display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 1;
+    margin-inline: -16px; padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+    background: var(--panel); border-bottom: 2px solid var(--edge); }
+  .sheet-bar .k { flex: none; }
+  .sheet-bar .v { color: var(--butter); margin-right: auto; min-width: 0; }
+  .sheet-bar button { flex: none; }
+  .shop button { min-height: 40px; font-size: 9px; }
+  footer button { min-height: 44px; }
+  footer .small { margin-left: 0; flex-basis: 100%; }
+  body.sheet-open { overflow: hidden; }
+}
+@media (max-width: 640px) {
+  .console { grid-template-columns: 1fr; }
+  .actions { flex-direction: row; }
+  #act { flex: 1; min-width: 0; min-height: 64px; font-size: 14px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .wrap { padding-block: 8px; gap: 8px; }
+  .screen { width: 100%; max-width: calc((100dvh - 156px) * 16 / 9); margin-inline: auto; }
+  .actions { flex-direction: row; }
+  #act { min-height: 44px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>TOAST SIMULATOR</h1>
+    <p class="tag">EARN TOAST POINTS (TP)<br>UPGRADE YOUR TOASTER</p>
+    <button id="openShop" class="shopbtn" aria-controls="sheet">UPGRADES<span class="badge" id="badge" hidden></span></button>
+  </header>
+
+  <div class="screen"><canvas id="cv" width="320" height="180" aria-label="The kitchen: a toaster on the worktop, a plate of toast beside it, and a doneness meter along the top"></canvas></div>
+
+  <div class="console">
+    <div class="stats">
+      <div class="stat score"><span class="k">SCORE</span><span class="v" id="score">0</span></div>
+      <div class="stat tp"><span class="k"><span class="long">TOAST POINTS</span><span class="abbr">TP</span></span><span class="v" id="tp">0</span></div>
+      <div class="stat"><span class="k">LEVEL</span><span class="v" id="level">1</span></div>
+      <div class="stat"><span class="k">LIVES</span><span class="v" id="lives"></span></div>
+      <div class="stat extra"><span class="k">STREAK</span><span class="v" id="streak">0</span></div>
+    </div>
+    <div class="actions">
+      <button id="act">PUSH LEVER</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="sheet">
+    <div class="sheet-bar"><span class="k">UPGRADES</span><span class="v" id="sheetTp">0 TP</span><button id="closeShop">BACK</button></div>
+
+    <p class="how">Push the lever and watch the needle. Pop it inside the <b>yellow brackets</b> for a PERFECT (10 TP), and keep it up for a streak bonus. Leave it too long and it burns. Every 6 rounds you go up a level: the toast cooks faster and the brackets get tighter. You get <b>3 lives</b> a level, and anything less than a perfect costs one. From level 7, a miss also sends you back to 0/6. Clear level 10 to finish. Your <b>score</b> comes from perfects (harder breads score more), level clears, lives left and your best streak. TP and upgrades carry over from run to run. You can also tap the screen, or press <b>Space</b>.</p>
+
+    <div class="shops">
+      <section class="shop"><h2>TOASTERS</h2><ul id="toasters"></ul></section>
+      <section class="shop"><h2>BREADS</h2><ul id="breads"></ul></section>
+      <section class="shop"><h2>SPREADS</h2><ul id="spreads"></ul></section>
+      <section class="shop"><h2>HIGH SCORES</h2><ul id="scores"></ul></section>
+    </div>
+
+    <footer>
+      <button id="snd">SOUND: ON</button>
+      <button id="reset">START AGAIN</button>
+      <span class="small" id="bestline">Best streak: 0</span>
+    </footer>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+// ---------- data ----------
+const CENTER = 72; // the perfect doneness, for every bread
+
+const TOASTERS = [
+  { id: 'nan', name: "Nan's Pop-Up", cost: 0, speed: 1, win: 9, wobble: 0.45, launch: 165, w: 52, h: 34,
+    body: '#ffdbb6', dark: '#b69249', hi: '#ffffff', style: 'nan',
+    blurb: "Your nan's. It's seen things. The heat comes and goes." },
+  { id: 'kwik', name: 'Kwik-Krisp 2000', cost: 60, speed: 1.2, win: 11, wobble: 0.25, launch: 200, w: 54, h: 36,
+    body: '#db2424', dark: '#922400', hi: '#ff6d6d', style: 'kwik',
+    blurb: 'From a catalogue, 1994. Two settings: off and yes.' },
+  { id: 'chrome', name: 'Chromeliner Deluxe', cost: 300, speed: 1.35, win: 14, wobble: 0.08, launch: 240, w: 58, h: 38,
+    body: '#b6b6db', dark: '#6d6d92', hi: '#ffffff', style: 'chrome',
+    blurb: 'Gleams. Steady heat, and the toast really flies.' },
+  { id: 'smart', name: 'SmartToast Pro', cost: 1200, speed: 1.5, win: 16, wobble: 0, launch: 265, w: 58, h: 38,
+    body: '#242449', dark: '#000024', hi: '#6d6d92', style: 'smart', beep: true,
+    blurb: "Beeps when it's nearly there. Has an app. You won't download it." },
+  { id: 'auto', name: 'Toastomatic 9000', cost: 5000, speed: 1.7, win: 18, wobble: 0, launch: 300, w: 66, h: 42,
+    body: '#929292', dark: '#494949', hi: '#dbdbdb', style: 'auto', beep: true,
+    blurb: "Off a hotel breakfast buffet. Don't ask. Built to do a thousand slices a morning." },
+  { id: 'rocket', name: 'Retro Rocket', cost: 15000, speed: 1.85, win: 20, wobble: 0, launch: 325, w: 60, h: 40,
+    body: '#24b6b6', dark: '#246d6d', hi: '#92ffff', style: 'rocket', beep: true,
+    blurb: 'Fins, a porthole, and a launch you can hear from the hall. Mind the ceiling.' },
+  { id: 'gold', name: 'The Golden Crumb', cost: 50000, speed: 2, win: 22, wobble: 0, launch: 345, w: 62, h: 40,
+    body: '#ffdb49', dark: '#b69200', hi: '#ffffdb', style: 'gold', beep: true,
+    blurb: 'Solid gold, apparently. The insurance company has questions.' },
+];
+
+const BREADS = [
+  { id: 'white', score: 1, name: 'White', cost: 0, rate: 1, pay: 1, win: 1, raw: '#ffffdb', shape: 'loaf',
+    blurb: 'Soft, forgiving, a bit sad. Everyone starts here.' },
+  { id: 'brown', score: 1.2, name: 'Brown', cost: 40, rate: 0.85, pay: 1.6, win: 1, raw: '#dbb692', shape: 'loaf',
+    blurb: 'Has bits in. Probably good for you.' },
+  { id: 'sourdough', score: 1.5, name: 'Sourdough', cost: 200, rate: 1, pay: 3, win: 0.9, raw: '#ffdbb6', shape: 'sour', surge: 0.7,
+    blurb: 'Three days to make, ninety seconds to ruin. Toasts in fits and starts.' },
+  { id: 'crumpet', score: 2, name: 'Crumpet', cost: 700, rate: 0.75, pay: 5, win: 0.8, raw: '#ffdb92', shape: 'crumpet', accel: true,
+    blurb: "Holes for the margarine. That's the whole design. Slow, then suddenly not." },
+  { id: 'brioche', score: 2.5, name: 'Brioche', cost: 2500, rate: 1.6, pay: 10, win: 0.6, raw: '#ffdb6d', shape: 'brioche',
+    blurb: "All that sugar. Blink and it's charcoal." },
+  { id: 'rye', score: 3, name: 'Dark Rye', cost: 8000, rate: 0.9, pay: 16, win: 0.5, raw: '#b6926d', shape: 'loaf', surge: 0.9,
+    blurb: 'Dense, dark and in no hurry. Then in a very big hurry.' },
+  { id: 'teacake', score: 4, name: 'Teacake', cost: 25000, rate: 1.3, pay: 30, win: 0.5, raw: '#dbb66d', shape: 'teacake', accel: true,
+    blurb: 'Fruity, spiced, and the raisins burn first. Every single time.' },
+];
+
+const SPREADS = [
+  { id: 'butter', name: 'Margarine', cost: 150, mult: 1.5, col: '#ffdb49',
+    blurb: 'Soft, spreadable, straight from the fridge. Every round pays half as much again.' },
+  { id: 'marmalade', name: 'Thick-Cut Marmalade', cost: 900, mult: 1.5, col: '#ff9200',
+    blurb: 'Bitter, chunky, correct. Another half again on top.' },
+  { id: 'jam', name: 'Strawberry Jam', cost: 3000, mult: 2, col: '#db2424',
+    blurb: 'The good stuff, with whole strawberries. Doubles everything.' },
+  { id: 'honey', name: 'Almond Butter', cost: 10000, mult: 2, col: '#db9249',
+    blurb: 'Smooth, roasted, and stirred until your arm hurts. Doubles everything again.' },
+  { id: 'truffle', name: 'Truffle Spread', cost: 40000, mult: 2.5, col: '#ffffb6',
+    blurb: 'Plant-based, but it went to private school. Two and a half times everything.' },
+];
+
+const byId = (list, id) => list.find(x => x.id === id) || list[0];
+
+// ---------- state ----------
+const KEY = 'toast-simulator-v1';
+const fresh = () => ({ lives: 3, score: 0, runBest: 0, scores: [], level: 1, levelRound: 0, clock: 420, day: 1, tp: 0, rounds: 0, perfects: 0, streak: 0, best: 0, charcoal: 0,
+  breads: ['white'], bread: 'white', toasters: ['nan'], toaster: 'nan', spreads: [],
+  sound: true, plate: [] });
+
+function clean(o) {
+  const s = Object.assign(fresh(), o || {});
+  const ok = (arr, list) => (Array.isArray(arr) ? arr : []).filter(id => list.some(x => x.id === id));
+  s.breads = ok(s.breads, BREADS); if (!s.breads.includes('white')) s.breads.unshift('white');
+  s.toasters = ok(s.toasters, TOASTERS); if (!s.toasters.includes('nan')) s.toasters.unshift('nan');
+  s.spreads = ok(s.spreads, SPREADS);
+  if (!s.breads.includes(s.bread)) s.bread = 'white';
+  if (!s.toasters.includes(s.toaster)) s.toaster = 'nan';
+  if (!Array.isArray(s.plate)) s.plate = [];
+  for (const k of ['tp', 'rounds', 'perfects', 'streak', 'best', 'charcoal', 'level', 'levelRound', 'clock', 'day', 'lives', 'score', 'runBest']) s[k] = Number(s[k]) || 0;
+  s.scores = (Array.isArray(s.scores) ? s.scores : []).filter(x => x && Number.isFinite(x.s)).slice(0, 5);
+  if (s.lives <= 0 || s.lives > LIVES || s.level > MAX_LEVEL || s.levelRound >= ROUNDS_PER_LEVEL) resetRun(s); // a finished or old run
+  s.level = Math.max(1, Math.floor(s.level)); s.day = Math.max(1, Math.floor(s.day));
+  s.levelRound = Math.max(0, Math.min(5, Math.floor(s.levelRound))); s.clock = ((s.clock % 1440) + 1440) % 1440;
+  return s;
+}
+function loadSaved() {
+  try { const raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+let S = fresh();
+const R = { end: null, over: null, falling: [], banner: null, cat: null, catTimer: 15 + Math.random() * 20, catEye: null, state: 'ready', d: 0, lever: 0, leverTo: 0, beeped: false, bread: null, toaster: null,
+  flying: [], parts: [], texts: [], alarm: 0, smoke: 0, phase: Math.random() * 10, t: 0 };
+
+// ---------- colour: everything snaps to the Mega Drive's 8 levels per channel ----------
+const LV = [0, 36, 73, 109, 146, 182, 219, 255];
+const snap = v => LV[Math.max(0, Math.min(7, Math.round(v / 255 * 7)))];
+const hex2rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const rgb = a => '#' + a.map(v => v.toString(16).padStart(2, '0')).join('');
+const shade = (h, n) => rgb(hex2rgb(h).map(v => LV[Math.max(0, Math.min(7, Math.round(v / 255 * 7) + n))]));
+const STOPS = [[45, '#ffdb92'], [CENTER, '#db9249'], [86, '#924924'], [96, '#492400'], [100, '#242424']];
+function toastCol(b, d) {
+  let prev = [0, b.raw];
+  for (const s of STOPS) {
+    if (d <= s[0]) {
+      const t = (d - prev[0]) / (s[0] - prev[0] || 1);
+      const A = hex2rgb(prev[1]), B = hex2rgb(s[1]);
+      return rgb(A.map((v, i) => snap(v + (B[i] - v) * t)));
+    }
+    prev = s;
+  }
+  return '#242424';
+}
+
+// ---------- canvas & pixel helpers ----------
+const W = 320, TX = 150, TY = 132, PX = 263, PY = 129, G = 520;
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+// The scene is 180 high; on a portrait phone the canvas grows taller to fill the screen.
+// OY is the extra wall above the scene, TOP the ceiling and SB the floor, in scene coordinates.
+let H = 180, OY = 0, TOP = 23, SB = 180;
+function fit() {
+  let h = 180;
+  if (matchMedia('(max-width: 640px) and (orientation: portrait)').matches) {
+    const w = cv.getBoundingClientRect().width || 320;
+    const other = document.querySelector('header').offsetHeight + document.querySelector('.console').offsetHeight + 20 + 20 + 6 + 8;
+    h = Math.max(180, Math.min(440, Math.floor(320 * (innerHeight - other) / w)));
+  }
+  if (h === H) return;
+  H = h; OY = Math.round((H - 180) * 0.6); TOP = 23 - OY; SB = H - OY;
+  cv.height = H; cv.style.aspectRatio = '320 / ' + H; ctx.imageSmoothingEnabled = false;
+}
+ctx.imageSmoothingEnabled = false;
+const r = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+
+// Press Start 2P drawn crisp: each glyph rendered once, alpha thresholded to hard pixels.
+const glyphs = new Map();
+function glyph(ch, col) {
+  const k = ch + col;
+  if (glyphs.has(k)) return glyphs.get(k);
+  const c = document.createElement('canvas'); c.width = 9; c.height = 9;
+  const g = c.getContext('2d');
+  g.font = '8px "Press Start 2P", monospace'; g.textBaseline = 'top'; g.fillStyle = '#fff';
+  g.fillText(ch, 0, 0);
+  const img = g.getImageData(0, 0, 9, 9), [cr, cg, cb] = hex2rgb(col);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const on = img.data[i + 3] > 100;
+    img.data[i] = cr; img.data[i + 1] = cg; img.data[i + 2] = cb; img.data[i + 3] = on ? 255 : 0;
+  }
+  g.putImageData(img, 0, 0);
+  glyphs.set(k, c);
+  return c;
+}
+function text(str, x, y, col, shadow = '#000024') {
+  x = Math.round(x); y = Math.round(y);
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === ' ') continue;
+    if (shadow) ctx.drawImage(glyph(str[i], shadow), x + i * 8 + 1, y + 1);
+    ctx.drawImage(glyph(str[i], col), x + i * 8, y);
+  }
+}
+const textC = (str, cx, y, col, sh) => text(str, cx - str.length * 4, y, col, sh);
+function textBig(str, cx, y, col) {
+  const x = Math.round(cx - str.length * 8); y = Math.round(y);
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === ' ') continue;
+    ctx.drawImage(glyph(str[i], '#000024'), x + i * 16 + 2, y + 2, 18, 18);
+    ctx.drawImage(glyph(str[i], col), x + i * 16, y, 18, 18);
+  }
+}
+if (document.fonts && document.fonts.load) document.fonts.load('8px "Press Start 2P"').then(() => glyphs.clear()).catch(() => {});
+
+function line(x0, y0, x1, y1, c) {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) | 0;
+  for (let i = 0; i <= n; i++) r(x0 + (x1 - x0) * i / (n || 1), y0 + (y1 - y0) * i / (n || 1), 1, 1, c);
+}
+
+// ---------- sound ----------
+let AC = null;
+function audio() {
+  if (!S.sound) return null;
+  try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function tone(f, dur, type = 'square', vol = 0.06, f2 = 0, delay = 0) {
+  const a = audio(); if (!a) return;
+  const t0 = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t0);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+}
+const sfx = {
+  push() { tone(140, 0.09, 'square', 0.07, 60); tone(900, 0.03, 'triangle', 0.04, 0, 0.05); },
+  pop() { tone(260, 0.14, 'triangle', 0.09, 700); },
+  perfect() { tone(1319, 0.18, 'square', 0.04); tone(1760, 0.3, 'square', 0.04, 0, 0.09); },
+  golden() { tone(1047, 0.2, 'triangle', 0.06); },
+  meh() { tone(330, 0.12, 'triangle', 0.05); },
+  burnt() { for (let i = 0; i < 4; i++) tone(2794, 0.14, 'square', 0.035, 0, i * 0.25); },
+  beep() { tone(1976, 0.05, 'sine', 0.05); },
+  land() { tone(180, 0.04, 'triangle', 0.05, 90); },
+  level() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.1, 'square', 0.04, 0, 1.3 + i * 0.08)); },
+  clatter() { for (let i = 0; i < 6; i++) tone(240 + Math.random() * 260, 0.05, 'triangle', 0.06, 120, 0.25 + i * 0.07 + Math.random() * 0.03); },
+  life() { tone(392, 0.12, 'square', 0.05, 0, 0.3); tone(262, 0.25, 'square', 0.05, 0, 0.42); },
+  over() { [523, 440, 349, 262].forEach((f, i) => tone(f, 0.3, 'square', 0.05, 0, 0.2 + i * 0.22)); },
+  win() { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.16, 'square', 0.05, 0, 0.2 + i * 0.11)); },
+  meow() { tone(520, 0.12, 'triangle', 0.06, 820); tone(820, 0.3, 'triangle', 0.06, 430, 0.12); },
+  buy() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.04, 0, i * 0.07)); },
+};
+
+// ---------- the game ----------
+const tt = () => byId(TOASTERS, S.toaster);
+const bread = () => byId(BREADS, S.bread);
+const spreadMult = () => S.spreads.reduce((m, id) => m * byId(SPREADS, id).mult, 1);
+
+// Levels: every 6 rounds the toast cooks faster, the brackets narrow and the pay goes up (levelling off at 15).
+const ROUNDS_PER_LEVEL = 6, MAX_LEVEL = 10, LIVES = 3;
+function resetRun(s) { s.level = 1; s.levelRound = 0; s.lives = LIVES; s.score = 0; s.runBest = 0; s.streak = 0; }
+const lvl = () => Math.min(S.level, 15) - 1;
+const levelSpeed = () => 1 + 0.15 * lvl();
+const levelWin = () => Math.max(0.55, 1 - 0.05 * lvl());
+const levelPay = () => 1 + 0.25 * lvl();
+const winOf = (t, b) => t.win * b.win * levelWin();
+
+function geom(t) {
+  const x = TX - t.w / 2, top = TY - t.h;
+  const span = t.w - 12;
+  return { x, top, slotY: top + 3, slots: [x + 2 + span * 0.28, x + 2 + span * 0.72] };
+}
+
+function judge(d, w) {
+  if (d >= 100) return { g: 'BURNT', base: 0, col: '#929292' };
+  const diff = Math.abs(d - CENTER);
+  if (diff <= w / 2) return { g: 'PERFECT!', base: 10, col: '#ffdb49', perfect: true };
+  if (diff <= w * 1.25) return { g: 'GOLDEN', base: 5, col: '#ffb649' };
+  if (d < CENTER) {
+    if (d < 30) return { g: 'STILL BREAD', base: 0, col: '#dbdbff' };
+    if (d < 50) return { g: 'PALE', base: 2, col: '#ffffdb' };
+    return { g: 'LIGHT', base: 3, col: '#ffdb92' };
+  }
+  if (d < 92) return { g: 'DARK', base: 3, col: '#db9249' };
+  return { g: 'VERY DARK', base: 1, col: '#b66d49' };
+}
+
+function action() {
+  audio();
+  if (R.state === 'over') { if (R.t - R.over.at > 1.2) newRun(); return; }
+  if (R.state === 'ready') push();
+  else if (R.state === 'toasting') pop(false);
+}
+
+function push() {
+  R.state = 'toasting'; R.d = 0; R.beeped = false; R.leverTo = 1;
+  R.bread = bread(); R.toaster = tt();
+  sfx.push();
+}
+
+function pop(burnt) {
+  const b = R.bread, t = R.toaster, w = winOf(t, b);
+  const res = judge(R.d, w);
+  R.state = 'flying'; R.leverTo = 0;
+  S.rounds++;
+  const L = S.level;
+  // From level 7, only a perfect moves you on: anything else sends you back to the start of the level.
+  const strict = L > 6 && !res.perfect;
+  const lost = strict && S.levelRound > 0;
+  S.levelRound = strict ? 0 : S.levelRound + 1;
+  let mult = 1;
+  if (res.perfect) {
+    S.streak++; S.perfects++; S.best = Math.max(S.best, S.streak); S.runBest = Math.max(S.runBest, S.streak);
+    mult = 1 + 0.25 * Math.min(S.streak - 1, 4);
+  } else { S.streak = 0; S.lives--; } // breaking the streak costs a life
+  const gain = Math.round(res.base * b.pay * spreadMult() * mult * levelPay());
+  S.tp += gain;
+  // Score is separate from TP: upgrades don't buy it, they help you earn it. Harder breads score more.
+  const pts = res.perfect ? Math.round(100 * L * b.score * mult) : res.g === 'GOLDEN' ? Math.round(30 * L * b.score) : 0;
+  S.score += pts;
+  let levelUp = false, clear = 0;
+  if (S.lives <= 0) R.end = { won: false };
+  else if (S.levelRound >= ROUNDS_PER_LEVEL) {
+    clear = 1000 * L + 500 * S.lives; S.score += clear;
+    if (L >= MAX_LEVEL) R.end = { won: true };
+    else { S.level++; S.levelRound = 0; S.lives = LIVES; levelUp = true; }
+  }
+  if (burnt) S.charcoal++;
+
+  const g = geom(t), col = toastCol(b, R.d);
+  const n = S.plate.length;
+  g.slots.forEach((sx, k) => {
+    const L = t.launch * (burnt ? 0.6 : 1) * (0.96 + 0.08 * k);
+    const x0 = sx, y0 = g.slotY - 8;
+    const xT = PX, yT = PY - 5 - 3 * Math.min(n + k, 6);
+    const a = 0.5 * G, v = -L, c = y0 - yT;
+    const T = (-v + Math.sqrt(v * v - 4 * a * c)) / (2 * a);
+    R.flying.push({ x: x0, y: y0, x0, y0, v, vx: (xT - x0) / T, T, t: -k * 0.07, col, crust: shade(col, -2),
+      shape: b.shape, spin: k ? -1 : 1 });
+    burst(sx, g.slotY, 6, () => shade(col, Math.random() < 0.5 ? 0 : -1));
+  });
+
+  const top = g.top;
+  R.texts.push({ s: res.g, x: TX, y: top - 40, col: res.col, life: 1.4, big: true });
+  const line = [gain > 0 ? '+' + short(gain) + ' TP' : '', pts ? '+' + fmt(pts) + ' PTS' : ''].filter(Boolean).join('  ');
+  if (line) R.texts.push({ s: line, x: TX, y: top - 20, col: '#ffffff', life: 1.4 });
+  if (!res.perfect) R.texts.push({ s: S.lives <= 0 ? 'NO LIVES LEFT' : lost ? 'LIFE LOST, BACK TO 0/' + ROUNDS_PER_LEVEL : 'LIFE LOST',
+    x: TX, y: top - 56, col: '#ff6d6d', life: 1.6 });
+  if (res.perfect && S.streak > 1) R.texts.push({ s: 'STREAK x' + mult, x: TX, y: top - 50, col: '#6dff6d', life: 1.4 });
+
+  sfx.pop();
+  if (res.perfect) { sfx.perfect(); sparkle(TX, top - 6, 14); }
+  else if (res.g === 'GOLDEN') sfx.golden();
+  else if (burnt) { sfx.burnt(); R.alarm = 1.2; R.smoke = 2.5; }
+  else sfx.meh();
+  if (!res.perfect) sfx.life();
+  // the level banner waits until the round's result has faded
+  if (levelUp) { R.banner = { s: 'LEVEL ' + S.level, sub: 'CLEAR BONUS +' + fmt(clear), life: 2.6, wait: 1.3 }; sfx.level(); }
+
+  save(); hud(); renderShops();
+}
+
+// The run ends at game over or after level 10. The final score adds a bonus for your best streak,
+// and for finishing, a clear bonus and one for every life left.
+function finishRun(won) {
+  const rows = [['LEVEL REACHED', String(S.level)], ['RUN SCORE', fmt(S.score)], ['BEST STREAK ' + S.runBest, '+' + fmt(S.runBest * 200)]];
+  let total = S.score + S.runBest * 200;
+  if (won) { rows.push(['ALL CLEAR', '+10,000'], ['LIVES LEFT ' + S.lives, '+' + fmt(S.lives * 1000)]); total += 10000 + S.lives * 1000; }
+  const prev = S.scores.length ? S.scores[0].s : 0;
+  S.scores.push({ s: total, lvl: S.level, won, d: new Date().toISOString().slice(0, 10) });
+  S.scores.sort((a, b) => b.s - a.s); S.scores = S.scores.slice(0, 5);
+  R.over = { won, rows, total, best: Math.max(prev, total), newHi: total > prev, at: R.t };
+  R.state = 'over'; R.end = null;
+  won ? sfx.win() : sfx.over();
+  save(); hud(); renderScores();
+}
+function newRun() { resetRun(S); R.over = null; R.state = 'ready'; R.d = 0; save(); hud(); }
+
+function drawOver() {
+  const o = R.over;
+  ctx.save(); ctx.globalAlpha = 0.7; ctx.fillStyle = '#000024'; ctx.fillRect(0, 0, W, H); ctx.restore();
+  const rows = o.rows.length, pw = 252, ph = 64 + rows * 11 + 22, px = (W - pw) / 2, py = Math.round((H - ph) / 2);
+  r(px - 2, py - 2, pw + 4, ph + 4, '#000024'); r(px, py, pw, ph, '#242449'); r(px, py, pw, 2, '#6d6db6'); r(px, py + ph - 2, pw, 2, '#000024');
+  textBig(o.won ? 'ALL CLEAR!' : 'GAME OVER', W / 2, py + 8, o.won ? '#ffdb49' : '#ff6d6d');
+  let y = py + 34;
+  const row = (l, v, c) => { text(l, px + 10, y, '#9292db', null); text(v, px + pw - 10 - v.length * 8, y, c || '#ffffff', null); y += 11; };
+  o.rows.forEach(([l, v]) => row(l, v));
+  r(px + 10, y, pw - 20, 1, '#6d6db6'); y += 4;
+  row('TOTAL', fmt(o.total), '#ffdb49');
+  if (o.newHi) { if (Math.floor(R.t * 3) % 2) textC('NEW HIGH SCORE!', W / 2, y + 2, '#6dff6d', null); }
+  else row('HIGH SCORE', fmt(o.best), '#dbdbff');
+  if (R.t - o.at > 1.2 && Math.floor(R.t * 2) % 2) textC('TAP TO PLAY AGAIN', W / 2, py + ph - 14, '#ffffff');
+}
+
+function burst(x, y, n, colFn) {
+  for (let i = 0; i < n; i++) R.parts.push({ type: 'crumb', x, y, vx: (Math.random() - 0.5) * 70, vy: -40 - Math.random() * 60,
+    life: 0.8, max: 0.8, col: colFn() });
+}
+function sparkle(x, y, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = 30 + Math.random() * 50;
+    R.parts.push({ type: 'star', x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 20, life: 0.7, max: 0.7, col: Math.random() < 0.5 ? '#ffff92' : '#ffffff' });
+  }
+}
+
+function update(dt) {
+  R.t += dt;
+  R.lever += (R.leverTo - R.lever) * Math.min(1, dt * (R.leverTo ? 18 : 30));
+
+  if (R.state === 'toasting') {
+    const b = R.bread, t = R.toaster, w = winOf(t, b);
+    let f = 1 + t.wobble * (0.6 * Math.sin(R.t * 2.3 + R.phase) + 0.4 * Math.sin(R.t * 5.7));
+    if (b.surge) f *= 0.55 + b.surge * Math.max(0, Math.sin(R.t * 3.1 + R.phase)) * 1.6;
+    if (b.accel) f *= 0.4 + R.d / 50;
+    R.d += 22 * t.speed * levelSpeed() * b.rate * Math.max(0.15, f) * dt;
+    if (t.beep && !R.beeped && R.d >= CENTER - w / 2) { R.beeped = true; sfx.beep(); }
+    if (R.d >= 100) { R.d = 100; pop(true); }
+    if (Math.random() < dt * 6) {
+      const g = geom(t), sx = g.slots[Math.random() < 0.5 ? 0 : 1];
+      R.parts.push({ type: 'heat', x: sx + (Math.random() - 0.5) * 10, y: g.slotY - 6, vx: 0, vy: -14, life: 0.5, max: 0.5, col: '#ffffff' });
+    }
+  }
+
+  for (const f of R.falling) { f.t += dt; f.x += f.vx * dt; f.y += f.vy * dt; f.vy += G * dt; }
+  R.falling = R.falling.filter(f => f.y < SB + 20);
+  for (const f of R.flying) {
+    f.t += dt;
+    if (f.t < 0) continue;
+    const tc = Math.min(f.t, f.T);
+    f.x = f.x0 + f.vx * tc;
+    f.y = f.y0 + f.v * tc + 0.5 * G * tc * tc;
+    if (f.t >= f.T && !f.done) {
+      f.done = true;
+      S.plate.push({ c: f.col, k: f.crust });
+      if (S.plate.length > 7) S.plate.shift();
+      burst(f.x, f.y + 2, 3, () => f.crust);
+      sfx.land();
+    }
+  }
+  R.flying = R.flying.filter(f => !f.done);
+  if (R.state === 'flying' && !R.flying.length) { if (R.end) finishRun(R.end.won); else { R.state = 'ready'; R.d = 0; save(); } }
+
+  if (R.smoke > 0) {
+    R.smoke -= dt;
+    if (Math.random() < dt * 14) {
+      const g = geom(tt());
+      const fromPlate = Math.random() < 0.4;
+      R.parts.push({ type: 'smoke', x: fromPlate ? PX + (Math.random() - 0.5) * 10 : g.slots[Math.random() < 0.5 ? 0 : 1],
+        y: fromPlate ? PY - 8 : g.slotY - 2, vx: (Math.random() - 0.5) * 8, vy: -12 - Math.random() * 10,
+        life: 1.8, max: 1.8, col: Math.random() < 0.5 ? '#6d6d6d' : '#494949' });
+    }
+  }
+  if (R.alarm > 0) R.alarm -= dt;
+  S.clock += dt * 6; // a day every four minutes
+  if (S.clock >= 1440) { S.clock -= 1440; S.day++; hud(); }
+  if (R.banner) { if (R.banner.wait > 0) R.banner.wait -= dt; else if ((R.banner.life -= dt) <= 0) R.banner = null; }
+  updateCat(dt);
+
+  for (const p of R.parts) {
+    p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.type === 'crumb') p.vy += 260 * dt;
+    if (p.type === 'star') { p.vx *= 0.94; p.vy *= 0.94; }
+    if (p.type === 'crumb' && p.y > TY - 1) { p.y = TY - 1; p.vy = 0; p.vx *= 0.8; }
+  }
+  R.parts = R.parts.filter(p => p.life > 0);
+  for (const t of R.texts) { t.life -= dt; t.y -= 14 * dt; }
+  R.texts = R.texts.filter(t => t.life > 0);
+}
+
+// ---------- the cat ----------
+// Wanders along the back of the worktop now and then. If there's toast on the plate it stops to look, and sometimes takes a slice.
+function updateCat(dt) {
+  if (!R.cat) {
+    R.catTimer -= dt;
+    if (R.catTimer <= 0) {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      R.cat = { x: dir > 0 ? -30 : W + 4, dir, state: 'walk', t: 0, stop: S.plate.length > 0, sat: false, carry: null };
+      sfx.meow();
+    }
+    return;
+  }
+  const c = R.cat;
+  c.t += dt;
+  if (c.state === 'walk') {
+    c.x += c.dir * (c.fast ? 48 : 20) * dt;
+    if (c.stop && !c.sat && (c.dir > 0 ? c.x >= PX - 32 : c.x <= PX + 3)) { c.state = 'sit'; c.t = 0; c.sat = true; }
+    if (c.x < -34 || c.x > W + 10) { R.cat = null; R.catTimer = 35 + Math.random() * 50; }
+  } else if (c.state === 'sit' && c.t > 2.6) {
+    const roll = Math.random();
+    if (S.plate.length >= 2 && roll < 0.3) { c.state = 'bat'; c.t = 0; return; } // knocks the whole pile off
+    if (S.plate.length && roll < 0.65) {
+      c.carry = S.plate.pop().k;
+      R.texts.push({ s: 'OI!', x: PX, y: 78, col: '#ffffff', life: 1.2 });
+      sfx.meow(); save();
+    }
+    c.state = 'walk'; c.t = 0;
+  } else if (c.state === 'bat') {
+    if (!c.batted && c.t > 0.3) {
+      c.batted = true;
+      S.plate.forEach((sl, i) => R.falling.push({ x: PX, y: PY - 3 - i * 3, vx: c.dir * (35 + Math.random() * 55),
+        vy: -50 - Math.random() * 70 - i * 6, t: 0, col: sl.c, crust: sl.k, spin: Math.random() < 0.5 ? 1 : -1 }));
+      burst(PX, PY - 6, 8, () => S.plate[0] ? S.plate[0].k : '#924924');
+      S.plate = [];
+      R.texts.push({ s: 'NOOO!', x: PX - 6, y: 78, col: '#ff6d6d', life: 1.4 });
+      sfx.clatter(); save();
+    }
+    if (c.t > 1.1) { c.state = 'walk'; c.t = 0; c.fast = true; sfx.meow(); } // and legs it
+  }
+}
+
+const CAT = [
+  '.oo.................o....o..',
+  'okko...............oko..oko.',
+  'oko................okkkkkko.',
+  'oko...............okkkkeekko',
+  '.oko..............okkkkeokko',
+  '..okooooooooooooookkkkkkkkkp',
+  '...okkkhhhhhhhhkkkkkkkkkkko.',
+  '...okkkkkkkkkkkkkkkkkkkkko..',
+  '...okkkkkkkkkkkkkkkkkko.....',
+  '...okkkkkkkkkkkkkkkkkko.....',
+  '...okkkkkkkkkkkkkkkkkko.....',
+  '....okkkkkkkkkkkkkkkko......',
+  '.....oooooooooooooooo.......',
+];
+const CAT_LEGS = [
+  ['.....oko.........oko........', '.....oko.........oko........', '.....ooo.........ooo........'],
+  ['.......oko.....oko..........', '.......oko.....oko..........', '.......ooo.....ooo..........'],
+];
+const CAT_COL = { o: '#000000', k: '#242424', h: '#49496d', e: '#dbff49', p: '#ff9292' };
+
+function drawCat() {
+  const c = R.cat; if (!c) return;
+  const frame = c.state === 'walk' ? Math.floor(c.t * (c.fast ? 12 : 6)) % 2 : 0;
+  const rows = CAT.concat(CAT_LEGS[frame]);
+  const x0 = Math.round(c.x), y0 = 128 - rows.length;
+  const tailUp = c.state === 'sit' && Math.floor(c.t * 2) % 2;
+  rows.forEach((row, y) => {
+    for (let i = 0; i < row.length; i++) {
+      const ch = row[i]; if (ch === '.') continue;
+      const yy = y0 + y - (tailUp && i < 5 && y < 6 ? 1 : 0);
+      r(c.dir > 0 ? x0 + i : x0 + 27 - i, yy, 1, 1, CAT_COL[ch]);
+    }
+  });
+  R.catEye = [c.dir > 0 ? x0 + 23 : x0 + 3, y0 + 3];
+  if (c.state === 'bat' && c.t > 0.1 && c.t < 0.55) { // paw out
+    const px = c.dir > 0 ? x0 + 26 : x0 - 4;
+    r(px, y0 + 8, 6, 4, CAT_COL.o); r(c.dir > 0 ? px : px + 1, y0 + 9, 5, 2, CAT_COL.k);
+  }
+  if (c.carry) { const mx = c.dir > 0 ? x0 + 25 : x0 - 5; r(mx, y0 + 7, 8, 3, c.carry); }
+}
+
+// ---------- day and night ----------
+// Keyframes by minute of the day; every colour snaps to the Mega Drive grid.
+const SKY = [[0, '#000024'], [300, '#000024'], [360, '#492449'], [420, '#ff926d'], [480, '#6db6ff'], [1080, '#6db6ff'],
+  [1140, '#ff9249'], [1200, '#924949'], [1260, '#242449'], [1440, '#000024']];
+const CLOUD = [[0, '#242449'], [330, '#242449'], [420, '#ffb6b6'], [480, '#ffffff'], [1080, '#ffffff'], [1150, '#ffb692'],
+  [1230, '#49496d'], [1440, '#242449']];
+const LIGHT = [[0, '#6d6d92'], [330, '#6d6d92'], [400, '#dbb6b6'], [480, '#ffffff'], [1080, '#ffffff'], [1160, '#ffdbb6'],
+  [1230, '#926d92'], [1290, '#6d6d92'], [1440, '#6d6d92']];
+function kf(list, m) {
+  for (let i = 1; i < list.length; i++) {
+    if (m <= list[i][0]) {
+      const [m0, c0] = list[i - 1], [m1, c1] = list[i], t = (m - m0) / (m1 - m0 || 1);
+      const A = hex2rgb(c0), B = hex2rgb(c1);
+      return rgb(A.map((v, k) => snap(v + (B[k] - v) * t)));
+    }
+  }
+  return list[list.length - 1][1];
+}
+const nightness = () => { const c = hex2rgb(kf(LIGHT, S.clock)); return Math.max(0, Math.min(1, (1 - (c[0] + c[1] + c[2]) / 765) / 0.52)); };
+const STARS = [[27, 38], [35, 44], [44, 37], [58, 41], [70, 37], [77, 46], [31, 52], [62, 50], [48, 47], [74, 54]];
+
+function drawSky() {
+  const m = S.clock, sky = kf(SKY, m), night = nightness();
+  r(23, 35, 58, 46, sky); r(23, 35, 58, 9, shade(sky, -1));
+  if (night > 0.5) STARS.forEach(([x, y], i) => { if ((Math.floor(R.t * 1.5) + i) % 5) r(x, y, 1, 1, i % 3 ? '#dbdbff' : '#ffffdb'); });
+  if (m >= 360 && m <= 1200) {
+    const p = (m - 360) / 840, sx = 23 + p * 58, sy = 77 - Math.sin(p * Math.PI) * 36;
+    const low = Math.sin(p * Math.PI) < 0.35;
+    r(sx - 3, sy - 4, 7, 9, low ? '#ffb649' : '#ffff92'); r(sx - 4, sy - 3, 9, 7, low ? '#ffb649' : '#ffff92');
+    r(sx - 2, sy - 2, 5, 5, low ? '#ffdb92' : '#ffffff');
+  } else {
+    const p = (m >= 1200 ? m - 1200 : m + 240) / 600, mx = 23 + p * 58, my = 77 - Math.sin(p * Math.PI) * 34;
+    r(mx - 3, my - 3, 6, 7, '#ffffdb'); r(mx - 4, my - 2, 8, 5, '#ffffdb'); r(mx, my - 3, 4, 5, sky); r(mx - 1, my - 1, 1, 1, '#dbdbb6');
+  }
+  const cloud = kf(CLOUD, m);
+  for (const [ox, oy, sp] of [[0, 45, 3], [50, 39, 2]]) {
+    const cx = 23 + ((ox + R.t * sp) % 90) - 20;
+    r(cx, oy, 14, 3, cloud); r(cx + 3, oy - 2, 7, 2, cloud); r(cx + 1, oy + 3, 12, 1, shade(cloud, -1));
+  }
+  const dk = Math.round(night * 3);
+  for (let i = 0; i < 58; i++) { const hh = 6 + Math.round(3 * Math.sin(i / 7) + 2 * Math.sin(i / 3)); r(23 + i, 81 - hh, 1, hh, shade('#499249', -dk)); }
+  for (let i = 0; i < 58; i++) { const hh = 3 + Math.round(2 * Math.sin(i / 5 + 2)); r(23 + i, 81 - hh, 1, hh, shade('#246d24', -Math.min(2, dk))); }
+  if (night > 0.6) { r(33, 74, 1, 1, '#ffdb49'); r(36, 75, 1, 1, '#ffdb49'); r(66, 76, 1, 1, '#ffdb49'); }
+}
+
+function lighting() {
+  const L = kf(LIGHT, S.clock), night = nightness();
+  if (L !== '#ffffff') {
+    ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = L;
+    ctx.fillRect(0, TOP, W, 35 - TOP); ctx.fillRect(0, 81, W, SB - 81); ctx.fillRect(0, 35, 23, 46); ctx.fillRect(81, 35, W - 81, 46);
+    ctx.restore();
+    r(51, 35, 2, 46, L); r(23, 57, 58, 2, L); // the window bars, in room light
+  }
+  if (night < 0.25) return;
+  // the lamp comes on
+  ctx.save(); ctx.globalAlpha = 0.14 * night; ctx.fillStyle = '#ffdb92';
+  for (let y = 40; y < 134; y++) { const hw = 4 + (y - 40) * 0.55; ctx.fillRect(Math.round(LAMP - hw), y, Math.round(hw * 2), 1); }
+  ctx.restore();
+  r(LAMP - 2, 37, 5, 2, '#ffff92'); r(LAMP - 1, 39, 3, 1, '#ffffff');
+  // the toaster glows in the dark
+  if (R.state === 'toasting') {
+    const g = geom(tt()), glow = Math.floor(R.t * 12) % 2 ? '#ff9200' : '#db4900';
+    ctx.save(); ctx.globalAlpha = 0.3 * night; ctx.fillStyle = '#ff6d00';
+    for (const sx of g.slots) { ctx.fillRect(Math.round(sx - 9), g.slotY - 6, 18, 6); ctx.fillRect(Math.round(sx - 6), g.slotY - 10, 12, 4); }
+    ctx.restore();
+    for (const sx of g.slots) { r(sx - 7, g.slotY, 1, 2, glow); r(sx + 6, g.slotY, 1, 2, glow); }
+  }
+  if (R.cat && R.catEye && night > 0.3) { r(R.catEye[0], R.catEye[1], 2, 1, '#dbff49'); r(R.catEye[0], R.catEye[1] + 1, 1, 1, '#dbff49'); }
+  r(295, TOP + 1, 2, 2, R.alarm > 0 && Math.floor(R.alarm * 8) % 2 ? '#ff0000' : '#49ff49');
+}
+const LAMP = 236;
+
+// ---------- drawing ----------
+function drawSlice(x, y, b, col, crust) {
+  // x, y: top-left of a 12 x 16 slice
+  const C = crust;
+  if (b.shape === 'crumpet' || b.shape === 'teacake') {
+    r(x + 2, y + 4, 8, 1, C); r(x + 1, y + 5, 10, 1, C); r(x, y + 6, 12, 8, C); r(x + 1, y + 14, 10, 1, C); r(x + 2, y + 15, 8, 1, C);
+    r(x + 2, y + 5, 8, 1, col); r(x + 1, y + 6, 10, 8, col); r(x + 2, y + 14, 8, 1, col);
+    const hole = b.shape === 'teacake' ? '#492424' : shade(col, -2);
+    [[3, 7], [7, 7], [5, 9], [2, 11], [8, 10], [5, 12]].forEach(([a, c]) => r(x + a, y + c, 1, 1, hole));
+    return;
+  }
+  const dome = b.shape === 'brioche' ? 2 : 0;
+  r(x + 3, y - dome, 6, 1, C); r(x + 1, y + 1 - dome, 10, 1 + dome, C); r(x, y + 2, 12, 14, C);
+  if (b.shape === 'sour') { r(x - 1, y + 3, 1, 3, C); r(x + 12, y + 4, 1, 3, C); }
+  r(x + 3, y + 1 - dome, 6, 1 + dome, col); r(x + 1, y + 2, 10, 13, col);
+  if (b.shape === 'brioche') r(x + 3, y - 1, 3, 1, shade(crust, 2));
+  if (b.shape === 'sour' || b.id === 'brown' || b.id === 'rye') {
+    const dot = shade(col, -1);
+    [[3, 5], [8, 7], [5, 10], [9, 12], [2, 13]].forEach(([a, c]) => r(x + a, y + c, 1, 1, dot));
+  }
+}
+
+function drawToaster(t) {
+  const g = geom(t), x = g.x, top = g.top, w = t.w, h = t.h - 2, O = '#000024';
+  r(x + 2, TY - 1, w, 2, '#b6926d'); // shadow on the worktop
+  r(x + 4, TY - 2, 5, 2, O); r(x + w - 9, TY - 2, 5, 2, O); // feet
+  // outline and body
+  r(x + 1, top - 1, w - 2, 1, O); r(x + 1, top + h, w - 2, 1, O);
+  r(x - 1, top + 1, 1, h - 2, O); r(x + w, top + 1, 1, h - 2, O);
+  r(x, top, 1, 1, O); r(x + w - 1, top, 1, 1, O); r(x, top + h - 1, 1, 1, O); r(x + w - 1, top + h - 1, 1, 1, O);
+  r(x + 1, top, w - 2, h, t.body); r(x, top + 1, w, h - 2, t.body);
+  r(x + 1, top, w - 2, 1, t.hi);
+  r(x + w - 4, top + 2, 3, h - 3, t.dark); r(x + 1, top + h - 2, w - 2, 2, t.dark);
+  r(x + 2, top + 7, 1, h - 11, t.hi);
+  r(x + 1, top + 6, w - 2, 1, t.dark); // edge between top and front
+
+  // style details
+  if (t.style === 'nan') {
+    r(x + 1, top + 18, w - 5, 3, '#924900'); r(x + 1, top + 21, w - 5, 1, '#6d2400');
+    r(x + 6, top + 10, 8, 5, '#dbb692'); r(x + 7, top + 11, 6, 3, '#ffffff');
+  } else if (t.style === 'kwik') {
+    r(x + 1, top + 25, w - 5, 2, '#ffffff');
+    text('K2000', x + 5, top + 12, '#ffdb49', '#6d0000');
+  } else if (t.style === 'chrome') {
+    for (let i = 0; i < 3; i++) { r(x + 4, top + 11 + i * 8, w - 10, 1, '#ffffff'); r(x + 4, top + 12 + i * 8, w - 10, 1, '#9292b6'); }
+    r(x + 8, top + 7, 2, h - 9, '#ffffff');
+  } else if (t.style === 'smart') {
+    r(x + 6, top + 12, 30, 13, '#000000'); r(x + 7, top + 13, 28, 11, '#002400');
+    const d = R.state === 'toasting' ? String(Math.floor(R.d)).padStart(2, '0') : '--';
+    const near = R.state === 'toasting' && Math.abs(R.d - CENTER) <= (R.toaster ? winOf(R.toaster, R.bread) / 2 : 0);
+    text(d, x + 9, top + 15, near ? '#ffff49' : '#49ff49', null);
+    text('%', x + 25, top + 15, '#249224', null);
+  } else if (t.style === 'auto') {
+    for (let i = 0; i < 6; i++) r(x + 6 + i * 6, top + h - 13, 3, 8, t.dark);
+    r(x + 6, top + 11, 4, 4, Math.floor(R.t * 2) % 2 ? '#49ff49' : '#244924');
+    text('9000', x + 14, top + 10, '#ffffff', '#494949');
+  } else if (t.style === 'rocket') {
+    r(x - 4, top + h - 12, 4, 10, t.dark); r(x - 3, top + h - 15, 3, 3, t.dark); // fins
+    r(x + w, top + h - 12, 4, 10, t.dark); r(x + w, top + h - 15, 3, 3, t.dark);
+    const cx = x + 16, cy = top + 19;
+    for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) {
+      const q = dx * dx + dy * dy;
+      if (q <= 36) r(cx + dx, cy + dy, 1, 1, q > 24 ? '#dbdbdb' : q > 16 ? '#929292' : '#2449b6');
+    }
+    r(cx - 2, cy - 3, 2, 2, '#92dbff');
+    r(x + 28, top + 14, 18, 2, '#ffffff'); r(x + 28, top + 20, 18, 2, '#ffffff'); r(x + 28, top + 26, 18, 2, '#ffffff');
+  } else if (t.style === 'gold') {
+    r(x + 6, top + 12, w - 18, 14, t.dark); r(x + 7, top + 13, w - 20, 12, '#ffb624');
+    text('GOLD', x + 10, top + 15, '#ffffdb', '#924900');
+    const tw = Math.floor(R.t * 3);
+    [[4, 9], [w - 14, 30], [w - 22, 8], [10, 30]].forEach(([a, c], i) => {
+      if ((tw + i) % 3 === 0) { r(x + a, top + c - 1, 1, 3, '#ffffff'); r(x + a - 1, top + c, 3, 1, '#ffffff'); }
+    });
+  }
+
+  // lever
+  const lx = x + w - 9;
+  r(lx, top + 9, 2, h - 15, O);
+  const ky = top + 8 + (h - 19) * R.lever;
+  r(lx - 3, ky, 9, 4, '#242424'); r(lx - 3, ky, 9, 1, '#6d6d6d'); r(lx + 5, ky + 1, 1, 3, '#000000');
+
+  // slots and slices
+  const toasting = R.state === 'toasting';
+  const b = toasting ? R.bread : bread();
+  const col = toastCol(b, toasting ? R.d : 0), crust = shade(col, -2);
+  const glow = Math.floor(R.t * 12) % 2 ? '#ff9200' : '#db4900';
+  for (const sx of g.slots) {
+    r(sx - 7, g.slotY, 14, 3, '#000000');
+    if (toasting) { r(sx - 7, g.slotY, 1, 2, glow); r(sx + 6, g.slotY, 1, 2, glow); }
+    if (R.state !== 'flying') {
+      const vis = 11 - 8 * R.lever;
+      ctx.save(); ctx.beginPath(); ctx.rect(sx - 8, 0, 16, g.slotY + 2); ctx.clip();
+      drawSlice(sx - 6, g.slotY + 2 - vis, b, col, crust);
+      ctx.restore();
+    }
+    r(sx - 7, g.slotY + 2, 14, 1, '#000000');
+    r(sx - 7, g.slotY + 3, 14, 1, t.hi);
+  }
+}
+
+function drawMeter() {
+  r(0, 0, W, 22, '#000024'); r(0, 22, W, 1, '#24246d');
+  text('DONENESS', 6, 7, '#9292db', null);
+  const x0 = 80, wd = 232, b = R.state === 'toasting' ? R.bread : bread(), t = R.state === 'toasting' ? R.toaster : tt();
+  const win = winOf(t, b);
+  r(x0 - 2, 4, wd + 4, 12, '#000000');
+  for (let i = 0; i < wd; i++) r(x0 + i, 6, 1, 8, toastCol(b, i / (wd - 1) * 100));
+  const px = d => x0 + Math.max(0, Math.min(100, d)) / 100 * (wd - 1);
+  // golden zone ticks, then the perfect brackets
+  for (const d of [CENTER - win * 1.25, CENTER + win * 1.25]) r(px(d), 5, 1, 10, '#b66d00');
+  const a = px(CENTER - win / 2), z = px(CENTER + win / 2);
+  r(a - 1, 3, 2, 14, '#ffdb49'); r(z, 3, 2, 14, '#ffdb49'); r(a - 1, 3, 4, 1, '#ffdb49'); r(z - 2, 3, 4, 1, '#ffdb49');
+  r(a - 1, 16, 4, 1, '#ffdb49'); r(z - 2, 16, 4, 1, '#ffdb49');
+  r(px(100) - 8, 6, 8, 8, '#242424'); r(px(100) - 6, 8, 4, 4, '#6d0000');
+  const nx = Math.round(px(R.state === 'toasting' ? R.d : 0));
+  r(nx, 4, 1, 12, '#ffffff');
+  r(nx - 2, 17, 5, 1, '#ffffff'); r(nx - 1, 18, 3, 1, '#ffffff'); r(nx, 19, 1, 1, '#ffffff');
+}
+
+function drawKitchen() {
+  // wall tiles
+  const y0 = 23 - Math.ceil(OY / 12) * 12;
+  r(0, y0, W, 126 - y0, '#dbdbb6');
+  for (let y = y0; y < 126; y += 12) r(0, y, W, 1, '#b6b692');
+  for (let x = 0; x < W; x += 12) r(x, y0, 1, 126 - y0, '#b6b692');
+  for (let y = y0 + 1; y < 126; y += 12) for (let x = 1; x < W; x += 12) r(x, y, 2, 1, '#ffffff');
+  if (OY > 0) r(0, TOP, W, 2, '#b6b692'); // cornice
+  if (OY >= 44) { // a picture of toast, when there's room
+    const px = 166, py = -16;
+    r(px, py, 36, 28, '#492400'); r(px + 1, py + 1, 34, 26, '#924924'); r(px + 3, py + 3, 30, 22, '#ffffdb');
+    r(px + 5, py + 5, 26, 18, '#6db6ff'); r(px + 5, py + 18, 26, 5, '#49b649');
+    drawSlice(px + 12, py + 6, BREADS[0], '#db9249', '#924924');
+    r(px + 15, py + 8, 4, 1, '#ffdb49');
+  }
+  r(0, 107, W, 12, '#24926d'); r(0, 107, W, 1, '#006d49'); r(0, 118, W, 1, '#006d49');
+  for (let x = 0; x < W; x += 12) { r(x, 107, 1, 12, '#006d49'); r(x + 1, 108, 2, 1, '#6ddbb6'); }
+
+  // window
+  r(20, 32, 64, 52, '#ffffff'); r(20, 32, 64, 1, '#dbdbdb');
+  ctx.save(); ctx.beginPath(); ctx.rect(23, 35, 58, 46); ctx.clip();
+  drawSky();
+  ctx.restore();
+  r(51, 35, 2, 46, '#ffffff'); r(23, 57, 58, 2, '#ffffff');
+  r(17, 84, 70, 3, '#dbdbdb'); r(17, 87, 70, 1, '#929292');
+
+  // clock with the game's time of day
+  const cx = 128, cy = 48, hh = Math.floor(S.clock / 60), mm = S.clock % 60;
+  for (let dy = -10; dy <= 10; dy++) for (let dx = -10; dx <= 10; dx++) {
+    const q = dx * dx + dy * dy;
+    if (q <= 100) r(cx + dx, cy + dy, 1, 1, q > 72 ? '#242424' : '#ffffff');
+  }
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; r(cx + Math.round(Math.sin(a) * 6.5), cy - Math.round(Math.cos(a) * 6.5), 1, 1, '#929292'); }
+  const hA = ((hh % 12) + mm / 60) / 12 * Math.PI * 2, mA = mm / 60 * Math.PI * 2;
+  line(cx, cy, cx + Math.round(Math.sin(hA) * 4), cy - Math.round(Math.cos(hA) * 4), '#000024');
+  line(cx, cy, cx + Math.round(Math.sin(mA) * 7), cy - Math.round(Math.cos(mA) * 7), '#000024');
+  r(cx, cy, 1, 1, '#db2424');
+
+  // shelf with the spreads you own
+  r(196, 76, 106, 3, '#924924'); r(196, 79, 106, 1, '#6d2400');
+  r(204, 80, 2, 5, '#6d2400'); r(292, 80, 2, 5, '#6d2400');
+  S.spreads.forEach((id, i) => {
+    const sp = byId(SPREADS, id), x = 202 + i * 20;
+    if (id === 'butter' || id === 'truffle') {
+      r(x, 72, 16, 4, '#dbdbff'); r(x, 75, 16, 1, '#9292b6'); r(x + 3, 67, 10, 5, sp.col); r(x + 3, 67, 10, 1, '#ffffff');
+      if (id === 'truffle') { r(x + 5, 69, 1, 1, '#242424'); r(x + 9, 68, 1, 1, '#242424'); r(x + 7, 70, 1, 1, '#242424'); }
+    } else {
+      r(x + 1, 61, 12, 3, '#db2424'); r(x + 1, 61, 12, 1, '#ff6d6d');
+      r(x, 64, 14, 12, '#dbdbff'); r(x + 1, 66, 12, 9, sp.col); r(x + 2, 66, 1, 7, '#ffffff');
+      r(x + 3, 68, 8, 4, '#ffffff'); r(x + 4, 69, 6, 2, '#db9249');
+    }
+  });
+  // the plant, on the window sill
+  r(70, 75, 10, 9, '#b64924'); r(70, 75, 10, 2, '#db6d49');
+  [[74, 67], [71, 70], [77, 69], [73, 64], [78, 72], [70, 73]].forEach(([a, c]) => r(a, c, 3, 3, '#249249'));
+  r(75, 65, 1, 1, '#6ddb6d'); r(72, 71, 1, 1, '#6ddb6d');
+
+  // smoke alarm
+  r(286, TOP, 20, 4, '#dbdbdb'); r(288, TOP + 4, 16, 2, '#b6b6b6');
+  r(295, TOP + 1, 2, 2, R.alarm > 0 && Math.floor(R.alarm * 8) % 2 ? '#ff0000' : '#246d24');
+
+  // worktop and cupboards
+  r(0, 119, W, 7, '#dbdbb6');
+  r(0, 126, W, 8, '#dbb692'); r(0, 126, W, 1, '#ffdbb6');
+  for (let x = 6; x < W; x += 23) r(x, 128 + (x % 3), 7, 1, '#b6926d');
+  r(0, 134, W, 4, '#b66d24'); r(0, 137, W, 1, '#6d2400');
+  r(0, 138, W, SB - 138, '#924924');
+  for (let x = 4; x < W; x += 80) {
+    r(x, 142, 74, SB - 146, '#6d2400'); r(x + 1, 143, 72, SB - 148, '#924924'); r(x + 1, 143, 72, 1, '#b66d24');
+    r(x + 33, 150, 8, 2, '#dbdbdb'); r(x + 33, 152, 8, 1, '#929292');
+    for (let k = 0; k < 4; k++) r(x + 6 + k * 17, 156 + (k % 2) * 7, 9, 1, '#6d2400');
+  }
+
+  // the lamp
+  r(LAMP, TOP, 1, 32 - TOP, '#242424'); r(LAMP - 3, 32, 7, 2, '#246d49'); r(LAMP - 5, 34, 11, 3, '#24926d'); r(LAMP - 5, 34, 11, 1, '#49b692');
+
+  drawCat();
+
+  // bread board with the loaf you're using
+  const b = bread();
+  r(10, 127, 56, 4, '#db9249'); r(10, 130, 56, 1, '#924900'); r(62, 128, 6, 2, '#db9249');
+  const crust = toastCol(b, 82), crustHi = shade(crust, 1);
+  if (b.shape === 'crumpet' || b.shape === 'teacake') {
+    for (let i = 0; i < 3; i++) { const y = 121 - i * 5; r(18, y, 30, 5, crust); r(19, y, 28, 1, crustHi); r(20, y + 2, 26, 1, shade(b.raw, -1)); }
+  } else {
+    const tall = b.shape === 'brioche' ? 3 : 0;
+    r(16, 113 - tall, 34, 14 + tall, crust); r(17, 112 - tall, 32, 1, crust); r(20, 111 - tall, 26, 1, crust); r(25, 110 - tall, 16, 1, crust);
+    r(20, 113 - tall, 22, 1, crustHi); r(22, 112 - tall, 14, 1, crustHi);
+    if (b.shape === 'sour') for (let k = 0; k < 3; k++) line(22 + k * 8, 112, 26 + k * 8, 116, shade(crust, -1));
+    r(48, 114 - tall, 4, 13 + tall, b.raw); r(51, 114 - tall, 1, 13 + tall, crust);
+  }
+
+  // plate and the pile of toast
+  r(244, 129, 38, 2, '#dbdbff'); r(242, 128, 42, 1, '#ffffff'); r(248, 131, 30, 1, '#9292b6');
+  S.plate.forEach((p, i) => {
+    const y = PY - 4 - i * 3;
+    r(PX - 8, y, 16, 3, p.k); r(PX - 7, y + 1, 14, 1, p.c);
+  });
+  if (S.plate.length && S.spreads.length) {
+    const y = PY - 4 - (S.plate.length - 1) * 3, best = byId(SPREADS, S.spreads[S.spreads.length - 1]);
+    r(PX - 4, y - 1, 7, 1, best.col); r(PX - 2, y - 2, 3, 1, best.col);
+  }
+}
+
+function draw() {
+  ctx.save(); ctx.translate(0, OY);
+  drawKitchen();
+  drawToaster(tt());
+  for (const f of R.falling) {
+    const q = Math.floor(f.t / 0.08) % 4;
+    ctx.save(); ctx.translate(Math.round(f.x), Math.round(f.y)); ctx.rotate(f.spin * q * Math.PI / 2);
+    r(-8, -1, 16, 3, f.crust); r(-7, 0, 14, 1, f.col);
+    ctx.restore();
+  }
+  for (const f of R.flying) {
+    if (f.t < 0) continue;
+    const q = Math.floor(f.t / 0.07) % 4; // spin in 90 degree steps, like sprite frames
+    ctx.save(); ctx.translate(Math.round(f.x), Math.round(f.y)); ctx.rotate(f.spin * q * Math.PI / 2);
+    drawSlice(-6, -8, { shape: f.shape }, f.col, f.crust);
+    ctx.restore();
+  }
+  for (const p of R.parts) {
+    const a = p.life / p.max;
+    if (p.type === 'smoke') {
+      const s = Math.round(3 + (1 - a) * 6);
+      ctx.globalAlpha = Math.min(1, a * 1.4) * 0.8; r(p.x - s / 2, p.y - s / 2, s, s, p.col); ctx.globalAlpha = 1;
+    } else if (p.type === 'star') {
+      r(p.x, p.y - 1, 1, 3, p.col); r(p.x - 1, p.y, 3, 1, p.col);
+    } else if (p.type === 'heat') {
+      if (Math.floor(p.life * 20) % 2) r(p.x, p.y, 1, 1, '#ffdbb6');
+    } else r(p.x, p.y, 2, 2, p.col);
+  }
+  lighting();
+  ctx.restore();
+  drawMeter();
+  ctx.save(); ctx.translate(0, OY);
+  if (R.banner && R.banner.wait <= 0 && (R.banner.life > 0.4 || Math.floor(R.banner.life * 20) % 2)) {
+    textBig(R.banner.s, W / 2, 34, '#6dff6d');
+    textC(R.banner.sub, W / 2, 56, '#ffffff');
+  }
+  for (const t of R.texts) if (t.life > 0.25 || Math.floor(t.life * 20) % 2) (t.big ? textBig : textC)(t.s, t.x, t.y, t.col);
+  if (R.state === 'ready' && S.rounds === 0 && Math.floor(R.t * 2) % 2) textC('PUSH THE LEVER', TX, 64, '#ffffff');
+  ctx.restore();
+  if (R.state === 'over' && R.over) drawOver();
+}
+
+// ---------- HUD and shops ----------
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('en-GB');
+// On a phone the HUD is narrow, so numbers shorten from 10,000 instead of 100,000.
+const short = n => n < (matchMedia('(max-width: 640px)').matches ? 10000 : 100000) ? fmt(n) : n < 1e6 ? +(n / 1e3).toFixed(1) + 'K' : +(n / 1e6).toFixed(2) + 'M';
+function hud() {
+  $('tp').textContent = short(S.tp);
+  $('tp').title = fmt(S.tp) + ' TP';
+  $('sheetTp').textContent = short(S.tp) + ' TP';
+  const afford = [...TOASTERS.filter(t => !S.toasters.includes(t.id)), ...BREADS.filter(b => !S.breads.includes(b.id)),
+    ...SPREADS.filter(x => !S.spreads.includes(x.id))].filter(it => it.cost <= S.tp).length;
+  $('badge').hidden = !afford; $('badge').textContent = afford;
+  $('level').innerHTML = S.level + '<small>' + S.levelRound + '/' + ROUNDS_PER_LEVEL + '</small>';
+  $('streak').textContent = S.streak;
+  $('score').textContent = short(S.score);
+  $('lives').innerHTML = Array.from({ length: LIVES }, (_, i) => '<i class="life' + (i < S.lives ? '' : ' gone') + '"></i>').join('');
+  $('lives').title = $('lives').ariaLabel = S.lives + (S.lives === 1 ? ' life' : ' lives') + ' left';
+  $('bestline').textContent = 'High score: ' + fmt(S.scores.length ? S.scores[0].s : 0) + ' · Day ' + S.day + ' · Rounds: ' + fmt(S.rounds) + ' · Perfects: ' + fmt(S.perfects) + ' · Best streak: ' + S.best + ' · Charcoal: ' + fmt(S.charcoal);
+  $('snd').textContent = 'SOUND: ' + (S.sound ? 'ON' : 'OFF');
+}
+let lastAct = '';
+function actButton() {
+  const s = R.state, a = $('act');
+  const label = s === 'ready' ? 'PUSH LEVER' : s === 'toasting' ? 'POP!' : s === 'over' ? 'PLAY AGAIN' : '...';
+  if (label === lastAct) return;
+  lastAct = label; a.textContent = label;
+  a.classList.toggle('pop', s === 'toasting');
+  a.disabled = s === 'flying';
+}
+
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+function row(kind, it, facts, owned, current, usable) {
+  let btn;
+  if (current) btn = `<button disabled>IN USE</button>`;
+  else if (owned) btn = usable ? `<button data-kind="${kind}" data-id="${it.id}" data-do="use">USE</button>` : `<button disabled>OWNED</button>`;
+  else btn = `<button data-kind="${kind}" data-id="${it.id}" data-do="buy" ${S.tp < it.cost ? 'disabled' : ''}>BUY ${fmt(it.cost)} TP</button>`;
+  return `<li class="${current ? 'current' : ''} ${owned ? '' : 'locked'}"><span class="nm">${esc(it.name)}</span>${btn}` +
+    `<span class="blurb">${esc(it.blurb)}</span><span class="facts">${esc(facts)}</span></li>`;
+}
+function renderShops() {
+  $('toasters').innerHTML = TOASTERS.map(t => row('toaster', t,
+    `Speed ×${t.speed} · Perfect window ${t.win}` + (t.wobble >= 0.2 ? ' · Patchy heat' : t.wobble > 0 ? '' : ' · Steady') +
+    (t.beep ? ' · Beeps' : ''),
+    S.toasters.includes(t.id), S.toaster === t.id, true)).join('');
+  $('breads').innerHTML = BREADS.map(b => row('bread', b,
+    `Score ×${b.score} · Pays ×${b.pay} TP · ` + (b.rate < 1 ? 'Slower' : b.rate > 1 ? 'Faster' : 'Normal speed') +
+    (b.win < 1 ? ' · Tighter window' : '') + (b.surge ? ' · Uneven' : '') + (b.accel ? ' · Speeds up' : ''),
+    S.breads.includes(b.id), S.bread === b.id, true)).join('');
+  $('spreads').innerHTML = SPREADS.map(s => row('spread', s, `Every round ×${s.mult}`,
+    S.spreads.includes(s.id), false, false)).join('');
+}
+
+function renderScores() {
+  $('scores').innerHTML = S.scores.length ? S.scores.map((x, i) =>
+    `<li><span class="nm">${i + 1}. ${fmt(x.s)}</span><span class="when">${x.won ? 'ALL CLEAR' : 'LEVEL ' + x.lvl}</span>` +
+    `<span class="facts">${esc(String(x.d || ''))}</span></li>`).join('')
+    : '<li><span class="blurb">No scores yet. Clear all 10 levels, or run out of lives, to get on the board.</span></li>';
+}
+
+document.querySelector('.shops').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-kind]'); if (!btn) return;
+  const kind = btn.dataset.kind, id = btn.dataset.id, buying = btn.dataset.do === 'buy';
+  const list = kind === 'toaster' ? TOASTERS : kind === 'bread' ? BREADS : SPREADS;
+  const it = byId(list, id), owned = kind === 'toaster' ? S.toasters : kind === 'bread' ? S.breads : S.spreads;
+  if (buying) {
+    if (S.tp < it.cost || owned.includes(id)) return;
+    S.tp -= it.cost; owned.push(id); sfx.buy();
+    R.texts.push({ s: 'NEW ' + (kind === 'spread' ? 'SPREAD' : kind.toUpperCase()) + '!', x: TX, y: 60, col: '#6dff6d', life: 1.6 });
+  }
+  if (kind === 'toaster') S.toaster = id;
+  if (kind === 'bread') S.bread = id;
+  save(); hud(); renderShops();
+});
+
+// The button acts on pointerdown for timing; a click only counts when no pointer came first (keyboard).
+let lastPointer = 0;
+$('act').addEventListener('pointerdown', e => { if (e.button === 0) { e.preventDefault(); lastPointer = Date.now(); action(); } });
+$('act').addEventListener('click', () => { if (Date.now() - lastPointer > 1000) action(); });
+cv.addEventListener('pointerdown', e => { if (e.button === 0) { e.preventDefault(); action(); } });
+document.addEventListener('keydown', e => {
+  if (e.code !== 'Space' || e.repeat) return;
+  if (e.target.closest && e.target.closest('button, input, textarea')) return;
+  e.preventDefault(); action();
+});
+$('snd').addEventListener('click', () => { S.sound = !S.sound; save(); hud(); if (S.sound) sfx.beep(); });
+let resetArmed = 0;
+$('reset').addEventListener('click', () => {
+  const btn = $('reset');
+  if (Date.now() - resetArmed < 3000) {
+    S = fresh(); S.sound = true; R.state = 'ready'; R.d = 0; R.flying = []; R.falling = []; R.texts = []; R.parts = []; R.cat = null; R.banner = null; R.over = null; R.end = null;
+    save(); hud(); renderShops(); renderScores(); btn.textContent = 'START AGAIN'; resetArmed = 0;
+  } else {
+    resetArmed = Date.now(); btn.textContent = 'SURE? CLICK AGAIN';
+    setTimeout(() => { if (resetArmed && Date.now() - resetArmed >= 2900) { btn.textContent = 'START AGAIN'; resetArmed = 0; } }, 3000);
+  }
+});
+
+// iOS only lets sound start from a finished touch
+const unlock = () => { const a = audio(); if (a) { const b = a.createBuffer(1, 1, 22050), src = a.createBufferSource(); src.buffer = b; src.connect(a.destination); src.start(0); } };
+document.addEventListener('touchend', unlock, { once: true, passive: true });
+
+function sheet(open) {
+  $('sheet').classList.toggle('open', open);
+  document.body.classList.toggle('sheet-open', open);
+  (open ? $('closeShop') : $('openShop')).focus({ preventScroll: true });
+}
+$('openShop').addEventListener('click', () => sheet(true));
+$('closeShop').addEventListener('click', () => sheet(false));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('sheet').classList.contains('open')) sheet(false); });
+addEventListener('resize', fit);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+
+// ---------- loop ----------
+let last = 0;
+function loop(now) {
+  const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
+  update(dt); draw(); actButton();
+  requestAnimationFrame(loop);
+}
+
+function boot(data) {
+  S = clean((data && data.S) || loadSaved());
+  hud(); renderShops(); renderScores(); fit(); requestAnimationFrame(loop);
+}
+window.claude?.hot?.snapshot?.(() => ({ S }));
+window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>
