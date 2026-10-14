@@ -27,17 +27,36 @@ def load(name):
 kitchen, t_up, t_down = load('kitchen.png'), load('toasterUp.png'), load('toasterDown.png')
 
 # ---------- the toaster without its lever knob (the knob is a sprite) ----------
+def clean_toaster(up, down, mg):
+    """The toaster with its lever knob painted out, using where the up and down renders differ."""
+    tx_, top_, tw_, th_ = mg['x'], mg['top'] + OY, mg['w'], mg['h']
+    lx_ = tx_ + tw_ - 9
+    out = up.copy()
+    pu, pd, po = up.load(), down.load(), out.load()
+    for y in range(SCENE_H):
+        for x in range(W):
+            if pu[x, y] != pd[x, y]:
+                po[x, y] = pu[x, top_ + 7] if pu[x, top_ + 7][3] else (0, 0, 0, 0)
+    for y in range(top_ + 9, top_ + th_ - 2 - 6):  # the lever's channel
+        for x in (lx_, lx_ + 1):
+            po[x, y] = NAVY + (255,)
+    return out
+
+def front_of(toaster_img, mg):
+    """Plane A's copy: the toaster with its slots open above the slot line, so the toast shows."""
+    out = toaster_img.copy()
+    fp = out.load()
+    top_, slot_y_ = mg['top'] + OY, mg['slotY'] + OY
+    for s_ in mg['slots']:
+        x0 = round(s_ - 7)
+        for y in range(top_ - 1, slot_y_ + 2):
+            for x in range(x0, x0 + 14):
+                fp[x, y] = (0, 0, 0, 0)
+    return out
+
 tx, ttop, tw, th = g['x'], g['top'] + OY, g['w'], g['h']
 lx = tx + tw - 9
-toaster = t_up.copy()
-px_up, px_dn, px = t_up.load(), t_down.load(), toaster.load()
-for y in range(SCENE_H):
-    for x in range(W):
-        if px_up[x, y] != px_dn[x, y]:
-            px[x, y] = px_up[x, ttop + 7] if px_up[x, ttop + 7][3] else (0, 0, 0, 0)
-for y in range(ttop + 9, ttop + th - 2 - 6):  # the lever's channel
-    for x in (lx, lx + 1):
-        px[x, y] = NAVY + (255,)
+toaster = clean_toaster(t_up, t_down, g)
 
 # ---------- plane B: the whole scene, opaque ----------
 scene = Image.new('RGBA', (W, H), NAVY + (255,))
@@ -45,14 +64,8 @@ scene.alpha_composite(kitchen)
 scene.alpha_composite(toaster)
 
 # ---------- plane A: the toaster's front, in front of the toast ----------
-front = toaster.copy()
-fp = front.load()
+front = front_of(toaster, g)
 slot_y = g['slotY'] + OY
-slot_x = [round(s - 7) for s in g['slots']]
-for x0 in slot_x:
-    for y in range(ttop - 1, slot_y + 2):
-        for x in range(x0, x0 + 14):
-            fp[x, y] = (0, 0, 0, 0)
 
 # ---------- palettes ----------
 def tile_colours(img, tx_, ty_):
@@ -158,6 +171,39 @@ def plane(img, rows):
 plane_b = plane(scene, 28)
 plane_a = [(e | 0x8000) if e else 0 for e in plane(front, SCENE_H // 8)]  # high priority
 knob_pal = next(i for i, p in enumerate(pals) if set(mc(c) for c in KNOB) <= p)
+
+# ---------- every toaster model, as a patch of tiles over the kitchen ----------
+# Only the kitchen and Nan's toaster were packed into the palettes; the others use each tile's best-fitting palette.
+PATCH_X, PATCH_Y, PATCH_W, PATCH_H = 14, 13, 10, 6
+dist = lambda c, d: sum((a - b) ** 2 for a, b in zip(c, d))
+
+def nearest_tile(img, tx_, ty_):
+    p = img.load()
+    pix = [p[tx_ * 8 + i, ty_ * 8 + j] for j in range(8) for i in range(8)]
+    if not any(q[3] for q in pix): return 0
+    best = None
+    for pi, pl in enumerate(pal_lists):
+        err, idx = 0, []
+        for q in pix:
+            if not q[3]: idx.append(0); continue
+            c = mc(q[:3])
+            k = min(range(len(pl)), key=lambda k: dist(pl[k], c))
+            err += dist(pl[k], c); idx.append(k + 1)
+        if best is None or err < best[0]: best = (err, pi, idx)
+    return (best[1] << 13) | add_tile(best[2])
+
+models = []
+for m in art['models']:
+    mg = m['geom']
+    tm = clean_toaster(load('toaster-%s-up.png' % m['id']), load('toaster-%s-down.png' % m['id']), mg)
+    bbox = tm.getbbox()
+    assert bbox[0] >= PATCH_X * 8 and bbox[2] <= (PATCH_X + PATCH_W) * 8 and bbox[1] >= PATCH_Y * 8 and bbox[3] <= (PATCH_Y + PATCH_H) * 8, (m['id'], bbox)
+    sm = Image.new('RGBA', (W, H), NAVY + (255,)); sm.alpha_composite(kitchen); sm.alpha_composite(tm)
+    fm = front_of(tm, mg)
+    cells = [(PATCH_X + i, PATCH_Y + j) for j in range(PATCH_H) for i in range(PATCH_W)]
+    models.append(dict(id=m['id'], geom=mg,
+                       b=[nearest_tile(sm, x, y) for x, y in cells],
+                       a=[(e | 0x8000) if e else 0 for e in (nearest_tile(fm, x, y) for x, y in cells)]))
 scene_tiles = len(tiles)
 
 # ---------- sprites and HUD art (palette indices drawn by hand) ----------
@@ -245,6 +291,34 @@ star = blank(8, 8)
 star[0][1] = star[1][0] = star[1][1] = star[1][2] = star[2][1] = 12
 crumb_tile, star_tile = sprite_tiles(crumb, 1, 1), sprite_tiles(star, 1, 1)
 
+# panels for the shop and the results: navy, with a lavender rule along the top
+panel_tile = sprite_tiles([[13] * 8 for _ in range(8)], 1, 1)
+panel_top = sprite_tiles([[10] * 8] + [[13] * 8 for _ in range(7)], 1, 1)
+
+def life_icon(body, edge):
+    rows = ['..cccc..', '.cbbbbc.', 'cbbbbbbc', 'cbbbbbbc', 'cbbbbbbc', 'cbbbbbbc', 'cbbbbbbc', 'cccccccc']
+    return [[{'c': edge, 'b': body, '.': 0}[ch] for ch in r] for r in rows]
+life_tile = sprite_tiles(life_icon(6, 8), 1, 1)
+life_gone_tile = sprite_tiles(life_icon(0, 9), 1, 1)
+
+# the black cat: a silhouette with a lavender sheen and yellow eyes; two walking frames, 32 x 16
+CAT = [
+  '.oo.................o....o..', 'okko...............oko..oko.', 'oko................okkkkkko.',
+  'oko...............okkkkeekko', '.oko..............okkkkeokko', '..okooooooooooooookkkkkkkkkp',
+  '...okkkhhhhhhhhkkkkkkkkkkko.', '...okkkkkkkkkkkkkkkkkkkkko..', '...okkkkkkkkkkkkkkkkkkko.....',
+  '...okkkkkkkkkkkkkkkkkkko.....', '...okkkkkkkkkkkkkkkkkkko.....', '....okkkkkkkkkkkkkkkkko......',
+  '.....oooooooooooooooo.......',
+]
+LEGS = [['.....oko.........oko........'] * 2 + ['.....ooo.........ooo........'],
+        ['.......oko.....oko..........'] * 2 + ['.......ooo.....ooo..........']]
+CAT_COL = {'.': 0, 'o': 13, 'k': 13, 'h': 9, 'e': 10, 'p': 9}
+cat_tiles = []
+for legs in LEGS:
+    img = blank(32, 16)
+    for y, row in enumerate(CAT + legs):
+        for x, ch in enumerate(row): img[y][x] = CAT_COL[ch]
+    cat_tiles.append(sprite_tiles(img, 4, 2))
+
 # ---------- fonts (Press Start 2P, from the browser) ----------
 chars = art['chars']
 def glyph_bits(k):
@@ -263,6 +337,16 @@ label_first = len(tiles)
 for k in range(len(chars)):  # the dim label colour, no shadow
     gb = glyph_bits(k)
     tiles.append(tuple(9 if gb[y][x] else 0 for y in range(8) for x in range(8)))
+panel_font = len(tiles)
+for k in range(len(chars)):  # on a navy panel: white, then the dim lavender, both opaque
+    gb = glyph_bits(k)
+    tiles.append(tuple(12 if gb[y][x] else 13 for y in range(8) for x in range(8)))
+for k in range(len(chars)):
+    gb = glyph_bits(k)
+    tiles.append(tuple(9 if gb[y][x] else 13 for y in range(8) for x in range(8)))
+for k in range(len(chars)):  # and yellow, for headings
+    gb = glyph_bits(k)
+    tiles.append(tuple(10 if gb[y][x] else 13 for y in range(8) for x in range(8)))
 big_first = len(tiles)
 for k in range(len(chars)):  # twice the size, word colour with a 2px shadow, 2x2 tiles column-major
     gb = glyph_bits(k)
@@ -306,17 +390,38 @@ with open(os.path.join(SRC, 'assets.c'), 'w') as f:
     f.write('const u8 band_edges[7] = { %s };\n' % ', '.join(map(str, BAND_EDGES)))
     f.write('const u16 plate_tiles[8] = { %s };\n' % ', '.join(map(str, plate_tiles)))
     f.write('const u16 fly_tiles[32] = { %s };\n' % ', '.join(map(str, fly)))
+    f.write('const u16 model_b[%d][%d] = {\n' % (len(models), PATCH_W * PATCH_H))
+    for m in models: f.write('  { %s },\n' % ', '.join('0x%04X' % e for e in m['b']))
+    f.write('};\nconst u16 model_a[%d][%d] = {\n' % (len(models), PATCH_W * PATCH_H))
+    for m in models: f.write('  { %s },\n' % ', '.join('0x%04X' % e for e in m['a']))
+    f.write('};\n')
+    f.write('const ToasterArt model_art[%d] = {\n' % len(models))
+    for m in models:
+        mg = m['geom']
+        f.write('  { %d, %d, %d, %d, %d, %d, %d },\n' % (mg['x'], mg['top'] + OY, mg['w'], mg['h'], mg['slotY'] + OY,
+                                                       round(mg['slots'][0]), round(mg['slots'][1])))
+    f.write('};\n')
+    def slot_of(c):
+        for pi, pl in enumerate(pal_lists):
+            if c in pl: return pi * 16 + pl.index(c) + 1
+        return 0
+    f.write('const u8 sky_slots[3] = { %d, %d, %d };  // sky, sky top band, sun\n' % (
+        slot_of(H_('6db6ff')), slot_of(H_('4992db')), slot_of(H_('ffff92'))))
     import math
     f.write('const s8 sin_lut[256] = { %s };\n' % ', '.join(str(round(math.sin(i / 256 * 2 * math.pi) * 127)) for i in range(256)))
 
 defs = dict(TILE_COUNT=len(tiles), SCENE_TILES=scene_tiles, SLOT_SLICE_TILE=slot_slice, KNOB_TILE=knob_tile, KNOB_PAL=knob_pal,
             BAR_TILE=bar_first, BRACKET_TILE=bracket_tile, NEEDLE_TILE=needle_tile, CRUMB_TILE=crumb_tile, STAR_TILE=star_tile,
-            FONT_SMALL=small_first, FONT_LABEL=label_first, FONT_BIG=big_first, FONT_COUNT=len(chars),
+            FONT_SMALL=small_first, FONT_PANEL=panel_font, FONT_PANEL_DIM=panel_font + len(chars), FONT_PANEL_GOLD=panel_font + 2 * len(chars), PANEL_TILE=panel_tile, PANEL_TOP=panel_top, LIFE_TILE=life_tile, LIFE_GONE_TILE=life_gone_tile,
+            CAT_TILE0=cat_tiles[0], CAT_TILE1=cat_tiles[1], MODEL_COUNT=len(models),
+            PATCH_X=PATCH_X, PATCH_Y=PATCH_Y, PATCH_W=PATCH_W, PATCH_H=PATCH_H, FONT_LABEL=label_first, FONT_BIG=big_first, FONT_COUNT=len(chars),
             TOASTER_X=tx, TOASTER_TOP=ttop, TOASTER_W=tw, TOASTER_H=th, SLOT_Y=slot_y, SLOT0_X=round(g['slots'][0]), SLOT1_X=round(g['slots'][1]),
             LEVER_X=lx, SCENE_OY=OY)
 with open(os.path.join(SRC, 'assets.h'), 'w') as f:
     f.write('// Generated by tools/build_assets.py. Do not edit.\n#pragma once\n#include "md.h"\n\n')
     for k, v in defs.items(): f.write('#define %s %d\n' % (k, v))
+    f.write('\ntypedef struct { s16 x, top, w, h, slot_y, slot0, slot1; } ToasterArt;\n')
+    f.write('extern const u16 model_b[][%d];\nextern const u16 model_a[][%d];\nextern const ToasterArt model_art[];\nextern const u8 sky_slots[3];\n' % (PATCH_W * PATCH_H, PATCH_W * PATCH_H))
     f.write('\nextern const u32 tile_data[];\nextern const u16 scene_pal[3][16];\nextern const u16 hud_pal[16];\n')
     f.write('extern const u16 plane_b_map[28 * 40];\nextern const u16 plane_a_map[28 * 40];\n')
     f.write('extern const char font_chars[];\nextern const u8 band_edges[7];\nextern const u16 plate_tiles[8];\nextern const u16 fly_tiles[32];\nextern const s8 sin_lut[256];\n')

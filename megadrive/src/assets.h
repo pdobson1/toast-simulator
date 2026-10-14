@@ -2,20 +2,34 @@
 #pragma once
 #include "md.h"
 
-#define TILE_COUNT 688
-#define SCENE_TILES 215
-#define SLOT_SLICE_TILE 215
-#define KNOB_TILE 347
+#define TILE_COUNT 1207
+#define SCENE_TILES 534
+#define SLOT_SLICE_TILE 534
+#define KNOB_TILE 666
 #define KNOB_PAL 2
-#define BAR_TILE 365
-#define BRACKET_TILE 394
-#define NEEDLE_TILE 396
-#define CRUMB_TILE 398
-#define STAR_TILE 399
-#define FONT_SMALL 400
-#define FONT_LABEL 448
-#define FONT_BIG 496
-#define FONT_COUNT 48
+#define BAR_TILE 684
+#define BRACKET_TILE 713
+#define NEEDLE_TILE 715
+#define CRUMB_TILE 717
+#define STAR_TILE 718
+#define FONT_SMALL 739
+#define FONT_PANEL 843
+#define FONT_PANEL_DIM 895
+#define FONT_PANEL_GOLD 947
+#define PANEL_TILE 719
+#define PANEL_TOP 720
+#define LIFE_TILE 721
+#define LIFE_GONE_TILE 722
+#define CAT_TILE0 723
+#define CAT_TILE1 731
+#define MODEL_COUNT 7
+#define PATCH_X 14
+#define PATCH_Y 13
+#define PATCH_W 10
+#define PATCH_H 6
+#define FONT_LABEL 791
+#define FONT_BIG 999
+#define FONT_COUNT 52
 #define TOASTER_X 124
 #define TOASTER_TOP 115
 #define TOASTER_W 52
@@ -25,6 +39,12 @@
 #define SLOT1_X 155
 #define LEVER_X 167
 #define SCENE_OY 17
+
+typedef struct { s16 x, top, w, h, slot_y, slot0, slot1; } ToasterArt;
+extern const u16 model_b[][60];
+extern const u16 model_a[][60];
+extern const ToasterArt model_art[];
+extern const u8 sky_slots[3];
 
 extern const u32 tile_data[];
 extern const u16 scene_pal[3][16];

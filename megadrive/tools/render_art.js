@@ -16,12 +16,23 @@ const fs = require('fs');
     ctx.clearRect(0, 0, 320, 208); A.toaster(0); res.toasterUp = shot();
     ctx.clearRect(0, 0, 320, 208); A.toaster(1); res.toasterDown = shot();
     res.geom = A.geom();
-    const chars = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!+-/.,:%x?\'';
+    res.models = [];  // every toaster you can buy, in shop order
+    for (const id of ['nan', 'kwik', 'chrome', 'smart', 'auto', 'rocket', 'gold']) {
+      A.S.toaster = id;
+      ctx.clearRect(0, 0, 320, 208); A.toaster(0); const up = shot();
+      ctx.clearRect(0, 0, 320, 208); A.toaster(1); const down = shot();
+      res.models.push({ id, up, down, geom: A.geom() });
+    }
+    A.S.toaster = 'nan';
+    const chars = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!+-/.,:%x?\'<>()';
     res.chars = chars; res.glyphs = A.glyphs(chars);
     return res;
   });
-  for (const k of ['kitchen', 'toasterUp', 'toasterDown']) fs.writeFileSync(__dirname + '/../res/' + k + '.png', Buffer.from(out[k].split(',')[1], 'base64'));
-  fs.writeFileSync(__dirname + '/../res/art.json', JSON.stringify({ geom: out.geom, chars: out.chars, glyphs: out.glyphs }));
+  const png = (name, url) => fs.writeFileSync(__dirname + '/../res/' + name + '.png', Buffer.from(url.split(',')[1], 'base64'));
+  for (const k of ['kitchen', 'toasterUp', 'toasterDown']) png(k, out[k]);
+  for (const m of out.models) { png('toaster-' + m.id + '-up', m.up); png('toaster-' + m.id + '-down', m.down); }
+  fs.writeFileSync(__dirname + '/../res/art.json', JSON.stringify({ geom: out.geom, chars: out.chars, glyphs: out.glyphs,
+    models: out.models.map(m => ({ id: m.id, geom: m.geom })) }));
   console.log(JSON.stringify(out.geom));
   await b.close();
 })();

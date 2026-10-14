@@ -53,9 +53,10 @@ a { color: var(--butter); }
     <section class="panel">
       <h2>CONTROLS</h2>
       <ul>
-        <li><kbd>Z</kbd> <kbd>X</kbd> <kbd>S</kbd> or <kbd>Enter</kbd>: push the lever, then pop the toast.</li>
-        <li>On a phone, tap the big <b>TOAST</b> button.</li>
-        <li>Pop inside the yellow brackets for a PERFECT.</li>
+        <li><kbd>Z</kbd> <kbd>X</kbd> or <kbd>S</kbd>: push the lever, then pop the toast. Pop inside the yellow brackets for a PERFECT.</li>
+        <li><kbd>Enter</kbd>: start, and the shop. Arrow keys to choose, <kbd>S</kbd> to buy, <kbd>X</kbd> to go back.</li>
+        <li>On a phone: the big <b>TOAST</b> button, <b>SHOP</b>, <b>BACK</b> and the D-pad.</li>
+        <li>3 lives a level: anything less than a PERFECT costs one. Clear level 10 to finish.</li>
       </ul>
     </section>
     <section class="panel">
@@ -73,9 +74,12 @@ a { color: var(--butter); }
   window.EJS_gameName = 'Toast Simulator';
   window.EJS_pathtodata = 'emulator/data/';  // EmulatorJS 4.2.3, kept with the game (see emulator/README.md)
   window.EJS_DEBUG_XX = true;                 // load its scripts as they are (they aren't minified)
-  // On a phone, just what the game needs: one big button, the pad's A
+  // On a phone, just what the game needs: a big TOAST button (the pad's A), BACK (B), SHOP (Start) and a D-pad for the shop
   window.EJS_VirtualGamepadSettings = [
     { type: 'button', text: 'TOAST', id: 'a', location: 'right', right: 10, top: 40, bold: true, input_value: 1 },
+    { type: 'button', text: 'BACK', id: 'b', location: 'right', right: 100, top: 0, fontSize: 13, input_value: 0 },
+    { type: 'dpad', id: 'dpad', location: 'left', left: '50%', right: '50%', joystickInput: false, inputValues: [4, 5, 6, 7] },
+    { type: 'button', text: 'SHOP', id: 'start', location: 'center', left: 30, fontSize: 15, block: true, input_value: 3 },
   ];
   window.EJS_color = '#ffdb49';
   window.EJS_backgroundColor = '#000024';
