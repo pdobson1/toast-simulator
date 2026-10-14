@@ -24,6 +24,16 @@ const fs = require('fs');
       res.models.push({ id, up, down, geom: A.geom() });
     }
     A.S.toaster = 'nan';
+    res.breads = [];  // the kitchen with each bread on the board
+    for (const id of ['white', 'brown', 'sourdough', 'crumpet', 'brioche', 'rye', 'teacake']) {
+      A.S.bread = id; ctx.clearRect(0, 0, 320, 208); A.kitchen(); res.breads.push({ id, img: shot() });
+    }
+    A.S.bread = 'white';
+    res.jars = [];  // each spread on its own on the shelf
+    for (const id of ['butter', 'marmalade', 'jam', 'honey', 'truffle']) {
+      A.S.spreads = [id]; ctx.clearRect(0, 0, 320, 208); A.kitchen(); res.jars.push({ id, img: shot() });
+    }
+    A.S.spreads = [];
     const chars = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!+-/.,:%x?\'<>()';
     res.chars = chars; res.glyphs = A.glyphs(chars);
     return res;
@@ -31,6 +41,8 @@ const fs = require('fs');
   const png = (name, url) => fs.writeFileSync(__dirname + '/../res/' + name + '.png', Buffer.from(url.split(',')[1], 'base64'));
   for (const k of ['kitchen', 'toasterUp', 'toasterDown']) png(k, out[k]);
   for (const m of out.models) { png('toaster-' + m.id + '-up', m.up); png('toaster-' + m.id + '-down', m.down); }
+  for (const x of out.breads) png('kitchen-bread-' + x.id, x.img);
+  for (const x of out.jars) png('kitchen-jar-' + x.id, x.img);
   fs.writeFileSync(__dirname + '/../res/art.json', JSON.stringify({ geom: out.geom, chars: out.chars, glyphs: out.glyphs,
     models: out.models.map(m => ({ id: m.id, geom: m.geom })) }));
   console.log(JSON.stringify(out.geom));

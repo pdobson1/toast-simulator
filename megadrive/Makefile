@@ -5,14 +5,14 @@ LD      := $(PREFIX)ld
 OBJCOPY := $(PREFIX)objcopy
 CFLAGS  := -m68000 -mstrict-align -fno-store-merging -O2 -Wall -ffreestanding -fno-builtin -fno-pic -fomit-frame-pointer \
            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables -Isrc
-OBJS    := build/boot.o build/md.o build/libc.o build/assets.o build/main.o
+OBJS    := build/boot.o build/md.o build/libc.o build/assets.o build/music.o build/main.o
 
 all: toast.bin
 
 src/assets.c src/assets.h: tools/build_assets.py res/kitchen.png res/toasterUp.png res/toasterDown.png res/art.json
 	python3 tools/build_assets.py
 
-build/%.o: src/%.c src/md.h src/assets.h | build
+build/%.o: src/%.c src/md.h src/assets.h src/music.h | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/boot.o: src/boot.s | build

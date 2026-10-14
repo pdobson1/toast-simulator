@@ -136,3 +136,38 @@ void psg_tone(u16 ch, u16 period) {
 }
 
 void psg_vol(u16 ch, u16 vol) { PSG_PORT = 0x90 | (ch << 5) | (vol & 0x0F); }
+
+// ---------- YM2612 ----------
+#define Z80_RAM     ((volatile u8 *)0xA00000)
+#define Z80_BUSREQ  (*(volatile u16 *)0xA11100)
+#define Z80_RESET   (*(volatile u16 *)0xA11200)
+#define YM_ADDR0    (*(volatile u8 *)0xA04000)
+#define YM_DATA0    (*(volatile u8 *)0xA04001)
+#define YM_ADDR1    (*(volatile u8 *)0xA04002)
+#define YM_DATA1    (*(volatile u8 *)0xA04003)
+
+void ym_init(void) {
+    // The YM2612 is held in reset with the Z80, so release the Z80 but keep its bus: it sits on a jump-to-itself.
+    Z80_BUSREQ = 0x100;
+    Z80_RESET = 0x100;
+    while (Z80_BUSREQ & 0x100) {}
+    Z80_RAM[0] = 0x18; Z80_RAM[1] = 0xFE;  // jr $
+    Z80_RESET = 0;
+    for (volatile int i = 0; i < 20; i++) {}
+    Z80_RESET = 0x100;
+    ym_write(0, 0x22, 0);     // no LFO
+    ym_write(0, 0x27, 0);     // channel 3 normal
+    ym_write(0, 0x2B, 0);     // no DAC
+    for (u16 ch = 0; ch < 3; ch++) {
+        ym_write(0, 0x28, ch); ym_write(0, 0x28, 4 + ch);  // keys off
+        for (u16 op = 0; op < 4; op++) { ym_write(0, 0x40 + op * 4 + ch, 127); ym_write(1, 0x40 + op * 4 + ch, 127); }
+    }
+}
+
+static void ym_wait(void) { while (YM_ADDR0 & 0x80) {} }
+
+void ym_write(u16 part, u8 reg, u8 value) {
+    ym_wait();
+    if (part) { YM_ADDR1 = reg; YM_DATA1 = value; }
+    else { YM_ADDR0 = reg; YM_DATA0 = value; }
+}

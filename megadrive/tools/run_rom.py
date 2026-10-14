@@ -9,6 +9,7 @@ SCRIPT is a list of steps separated by spaces:
   shot:FILE      save the current frame as a PNG
   until:SYM:N    run until the 32-bit variable SYM reaches N (at most 20 seconds)
   wav:FILE       save all the sound so far as a WAV file
+  poke:SYM:OFF:HEX  write bytes into a variable in work RAM, at a byte offset (for setting up tests)
 """
 import ctypes as C, sys
 from PIL import Image
@@ -110,6 +111,10 @@ for step in script:
         for _ in range(1200):
             if int.from_bytes(peek(parts[1], 4), 'big', signed=True) >= int(parts[2]): break
             run(1)
+    elif parts[0] == 'poke':
+        base = C.cast(core.retro_get_memory_data(2), C.POINTER(C.c_ubyte))
+        off = syms[parts[1]] - 0xFF0000 + int(parts[2])
+        for i, byte in enumerate(bytes.fromhex(parts[3])): base[(off + i) ^ 1] = byte
     elif parts[0] == 'wav':
         import wave
         with wave.open(parts[1], 'wb') as w:

@@ -204,6 +204,13 @@ for m in art['models']:
     models.append(dict(id=m['id'], geom=mg,
                        b=[nearest_tile(sm, x, y) for x, y in cells],
                        a=[(e | 0x8000) if e else 0 for e in (nearest_tile(fm, x, y) for x, y in cells)]))
+# ---------- the loaf on the board, for each bread ----------
+BREAD_X, BREAD_Y, BREAD_W, BREAD_H = 2, 15, 5, 3
+BREAD_IDS = ['white', 'brown', 'sourdough', 'crumpet', 'brioche', 'rye', 'teacake']
+bread_patches = []
+for bid in BREAD_IDS:
+    kb = Image.new('RGBA', (W, H), NAVY + (255,)); kb.alpha_composite(load('kitchen-bread-%s.png' % bid))
+    bread_patches.append([nearest_tile(kb, BREAD_X + i, BREAD_Y + j) for j in range(BREAD_H) for i in range(BREAD_W)])
 scene_tiles = len(tiles)
 
 # ---------- sprites and HUD art (palette indices drawn by hand) ----------
@@ -291,6 +298,73 @@ star = blank(8, 8)
 star[0][1] = star[1][0] = star[1][1] = star[1][2] = star[2][1] = 12
 crumb_tile, star_tile = sprite_tiles(crumb, 1, 1), sprite_tiles(star, 1, 1)
 
+# the spreads on the shelf: one 16 x 16 sprite each, in whichever kitchen palette fits it best
+SPREAD_IDS = ['butter', 'marmalade', 'jam', 'honey', 'truffle']
+JAR_X, JAR_Y = 202, 77
+jar_tiles, jar_pals = [], []
+for sid in SPREAD_IDS:
+    im = load('kitchen-jar-%s.png' % sid)
+    a_, b_ = kitchen.load(), im.load()
+    px16 = [[b_[JAR_X + i, JAR_Y + j][:3] if b_[JAR_X + i, JAR_Y + j] != a_[JAR_X + i, JAR_Y + j] else None for i in range(16)] for j in range(16)]
+    best = None
+    for pi, pl in enumerate(pal_lists):
+        err = 0
+        rows = []
+        for row in px16:
+            out = []
+            for c in row:
+                if c is None: out.append(0); continue
+                c = mc(c)
+                k = min(range(len(pl)), key=lambda k: dist(pl[k], c))
+                err += dist(pl[k], c); out.append(k + 1)
+            rows.append(out)
+        if best is None or err < best[0]: best = (err, pi, rows)
+    jar_tiles.append(sprite_tiles(best[2], 2, 2)); jar_pals.append(best[1])
+
+# the toast in the slots, shaped by the bread (body 14, crust 15)
+def shaped_slice(shape):
+    p = blank(16, 16)
+    def r(x, y, w, h, c):
+        for j in range(y, y + h):
+            for i in range(x, x + w):
+                if 0 <= i < 16 and 0 <= j < 16: p[j][i] = c
+    x, y, C, B = 2, 0, 15, 14
+    if shape in ('crumpet', 'teacake'):
+        r(x + 2, y + 4, 8, 1, C); r(x + 1, y + 5, 10, 1, C); r(x, y + 6, 12, 8, C); r(x + 1, y + 14, 10, 1, C); r(x + 2, y + 15, 8, 1, C)
+        r(x + 2, y + 5, 8, 1, B); r(x + 1, y + 6, 10, 8, B); r(x + 2, y + 14, 8, 1, B)
+        dot = 13 if shape == 'teacake' else 15  # raisins, or holes
+        for a, c in [(3, 7), (7, 7), (5, 9), (2, 11), (8, 10), (5, 12)]: r(x + a, y + c, 1, 1, dot)
+        return p
+    dome = 2 if shape == 'brioche' else 0
+    y = 2  # room for the brioche's dome
+    r(x + 3, y - dome, 6, 1, C); r(x + 1, y + 1 - dome, 10, 1 + dome, C); r(x, y + 2, 12, 12, C)
+    if shape == 'sour': r(x - 1, y + 3, 1, 3, C); r(x + 12, y + 4, 1, 3, C)
+    r(x + 3, y + 1 - dome, 6, 1 + dome, B); r(x + 1, y + 2, 10, 11, B)
+    if shape in ('sour', 'seeded'):
+        for a, c in [(3, 5), (8, 7), (5, 10), (9, 12)]: r(x + a, y + c, 1, 1, C)
+    return p
+SLICE_SHAPES = ['loaf', 'seeded', 'sour', 'crumpet', 'brioche', 'seeded', 'teacake']  # per bread
+slice_tiles = {sh: sprite_tiles(shaped_slice(sh), 2, 2) for sh in dict.fromkeys(SLICE_SHAPES)}
+
+# the lamp at night: a dithered cone of light (bracket yellow, every fourth pixel) and the bulb
+LAMP_X, CONE_Y0, CONE_Y1 = 236, 40 + OY, 133 + OY
+CONE_X0 = LAMP_X - 64
+cone = blank(128, 96)
+for y in range(CONE_Y0, CONE_Y1):
+    hw = 4 + (y - CONE_Y0) * 0.55
+    for x in range(round(LAMP_X - hw), round(LAMP_X + hw)):
+        if (x % 2 == 0) and (y % 2 == 0) and ((x // 2 + y // 2) % 2 == 0):
+            cone[y - CONE_Y0][x - CONE_X0] = 10
+cone_tiles = []
+for cy in range(3):
+    for cx in range(4):
+        part = [row[cx * 32:(cx + 1) * 32] for row in cone[cy * 32:(cy + 1) * 32]]
+        cone_tiles.append(sprite_tiles(part, 4, 4) if any(any(r) for r in part) else 0)
+bulb = blank(8, 8)
+for i in range(5): bulb[0][1 + i] = 10; bulb[1][1 + i] = 10
+for i in range(3): bulb[2][2 + i] = 12
+bulb_tile = sprite_tiles(bulb, 1, 1)
+
 # panels for the shop and the results: navy, with a lavender rule along the top
 panel_tile = sprite_tiles([[13] * 8 for _ in range(8)], 1, 1)
 panel_top = sprite_tiles([[10] * 8] + [[13] * 8 for _ in range(7)], 1, 1)
@@ -357,7 +431,7 @@ for k in range(len(chars)):  # twice the size, word colour with a 2px shadow, 2x
             elif x > 1 and y > 1 and gb[(y - 2) // 2][(x - 2) // 2]: p[y][x] = 13
     sprite_tiles(p, 2, 2)
 
-assert len(tiles) * 32 <= 0xB000, 'tiles overflow into the name tables'
+assert len(tiles) * 32 <= 0xC000, 'tiles overflow into the name tables'  # 0xB000-0xBFFF is free: the window plane is off
 
 # ---------- write C ----------
 def words(t):
@@ -405,6 +479,12 @@ with open(os.path.join(SRC, 'assets.c'), 'w') as f:
         for pi, pl in enumerate(pal_lists):
             if c in pl: return pi * 16 + pl.index(c) + 1
         return 0
+    f.write('const u16 bread_b[%d][%d] = {\n' % (len(bread_patches), BREAD_W * BREAD_H))
+    for bp in bread_patches: f.write('  { %s },\n' % ', '.join('0x%04X' % e for e in bp))
+    f.write('};\n')
+    f.write('const u16 jar_tiles[5] = { %s };\nconst u8 jar_pals[5] = { %s };\n' % (', '.join(map(str, jar_tiles)), ', '.join(map(str, jar_pals))))
+    f.write('const u16 slice_tiles[7] = { %s };\n' % ', '.join(str(slice_tiles[sh]) for sh in SLICE_SHAPES))
+    f.write('const u16 cone_tiles[12] = { %s };\n' % ', '.join(map(str, cone_tiles)))
     f.write('const u8 sky_slots[3] = { %d, %d, %d };  // sky, sky top band, sun\n' % (
         slot_of(H_('6db6ff')), slot_of(H_('4992db')), slot_of(H_('ffff92'))))
     import math
@@ -412,6 +492,8 @@ with open(os.path.join(SRC, 'assets.c'), 'w') as f:
 
 defs = dict(TILE_COUNT=len(tiles), SCENE_TILES=scene_tiles, SLOT_SLICE_TILE=slot_slice, KNOB_TILE=knob_tile, KNOB_PAL=knob_pal,
             BAR_TILE=bar_first, BRACKET_TILE=bracket_tile, NEEDLE_TILE=needle_tile, CRUMB_TILE=crumb_tile, STAR_TILE=star_tile,
+            BREAD_X=BREAD_X, BREAD_Y=BREAD_Y, BREAD_W=BREAD_W, BREAD_H=BREAD_H, JAR_X=JAR_X, JAR_Y=JAR_Y,
+            CONE_X=CONE_X0, CONE_Y=CONE_Y0, BULB_TILE=bulb_tile, LAMP_X=LAMP_X, LAMP_Y=37 + OY,
             FONT_SMALL=small_first, FONT_PANEL=panel_font, FONT_PANEL_DIM=panel_font + len(chars), FONT_PANEL_GOLD=panel_font + 2 * len(chars), PANEL_TILE=panel_tile, PANEL_TOP=panel_top, LIFE_TILE=life_tile, LIFE_GONE_TILE=life_gone_tile,
             CAT_TILE0=cat_tiles[0], CAT_TILE1=cat_tiles[1], MODEL_COUNT=len(models),
             PATCH_X=PATCH_X, PATCH_Y=PATCH_Y, PATCH_W=PATCH_W, PATCH_H=PATCH_H, FONT_LABEL=label_first, FONT_BIG=big_first, FONT_COUNT=len(chars),
@@ -422,6 +504,7 @@ with open(os.path.join(SRC, 'assets.h'), 'w') as f:
     for k, v in defs.items(): f.write('#define %s %d\n' % (k, v))
     f.write('\ntypedef struct { s16 x, top, w, h, slot_y, slot0, slot1; } ToasterArt;\n')
     f.write('extern const u16 model_b[][%d];\nextern const u16 model_a[][%d];\nextern const ToasterArt model_art[];\nextern const u8 sky_slots[3];\n' % (PATCH_W * PATCH_H, PATCH_W * PATCH_H))
+    f.write('extern const u16 bread_b[][%d];\nextern const u16 jar_tiles[5];\nextern const u8 jar_pals[5];\nextern const u16 slice_tiles[7];\nextern const u16 cone_tiles[12];\n' % (BREAD_W * BREAD_H))
     f.write('\nextern const u32 tile_data[];\nextern const u16 scene_pal[3][16];\nextern const u16 hud_pal[16];\n')
     f.write('extern const u16 plane_b_map[28 * 40];\nextern const u16 plane_a_map[28 * 40];\n')
     f.write('extern const char font_chars[];\nextern const u8 band_edges[7];\nextern const u16 plate_tiles[8];\nextern const u16 fly_tiles[32];\nextern const s8 sin_lut[256];\n')

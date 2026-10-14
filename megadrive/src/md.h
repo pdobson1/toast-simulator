@@ -59,3 +59,9 @@ void psg_vol(u16 ch, u16 vol);
 
 void *memset(void *dst, int c, unsigned long n);
 void *memcpy(void *dst, const void *src, unsigned long n);
+
+// YM2612 FM synth, written by the 68000 directly (the Z80 is parked, holding nothing but a loop)
+void ym_init(void);
+void ym_write(u16 part, u8 reg, u8 value);  // part 0: channels 1-3, part 1: channels 4-6
+#define PSG_NOISE(ctrl) (PSG_PORT = 0xE0 | (ctrl))   // bit 2: white noise; bits 0-1: rate
+#define PSG_NOISE_VOL(v) (PSG_PORT = 0xF0 | (v))

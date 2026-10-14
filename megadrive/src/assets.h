@@ -2,33 +2,44 @@
 #pragma once
 #include "md.h"
 
-#define TILE_COUNT 1207
-#define SCENE_TILES 534
-#define SLOT_SLICE_TILE 534
-#define KNOB_TILE 666
+#define TILE_COUNT 1441
+#define SCENE_TILES 563
+#define SLOT_SLICE_TILE 563
+#define KNOB_TILE 695
 #define KNOB_PAL 2
-#define BAR_TILE 684
-#define BRACKET_TILE 713
-#define NEEDLE_TILE 715
-#define CRUMB_TILE 717
-#define STAR_TILE 718
-#define FONT_SMALL 739
-#define FONT_PANEL 843
-#define FONT_PANEL_DIM 895
-#define FONT_PANEL_GOLD 947
-#define PANEL_TILE 719
-#define PANEL_TOP 720
-#define LIFE_TILE 721
-#define LIFE_GONE_TILE 722
-#define CAT_TILE0 723
-#define CAT_TILE1 731
+#define BAR_TILE 713
+#define BRACKET_TILE 742
+#define NEEDLE_TILE 744
+#define CRUMB_TILE 746
+#define STAR_TILE 747
+#define BREAD_X 2
+#define BREAD_Y 15
+#define BREAD_W 5
+#define BREAD_H 3
+#define JAR_X 202
+#define JAR_Y 77
+#define CONE_X 172
+#define CONE_Y 57
+#define BULB_TILE 952
+#define LAMP_X 236
+#define LAMP_Y 54
+#define FONT_SMALL 973
+#define FONT_PANEL 1077
+#define FONT_PANEL_DIM 1129
+#define FONT_PANEL_GOLD 1181
+#define PANEL_TILE 953
+#define PANEL_TOP 954
+#define LIFE_TILE 955
+#define LIFE_GONE_TILE 956
+#define CAT_TILE0 957
+#define CAT_TILE1 965
 #define MODEL_COUNT 7
 #define PATCH_X 14
 #define PATCH_Y 13
 #define PATCH_W 10
 #define PATCH_H 6
-#define FONT_LABEL 791
-#define FONT_BIG 999
+#define FONT_LABEL 1025
+#define FONT_BIG 1233
 #define FONT_COUNT 52
 #define TOASTER_X 124
 #define TOASTER_TOP 115
@@ -45,6 +56,11 @@ extern const u16 model_b[][60];
 extern const u16 model_a[][60];
 extern const ToasterArt model_art[];
 extern const u8 sky_slots[3];
+extern const u16 bread_b[][15];
+extern const u16 jar_tiles[5];
+extern const u8 jar_pals[5];
+extern const u16 slice_tiles[7];
+extern const u16 cone_tiles[12];
 
 extern const u32 tile_data[];
 extern const u16 scene_pal[3][16];

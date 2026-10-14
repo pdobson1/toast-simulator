@@ -2,6 +2,7 @@
 // Push the lever, watch the needle, pop the toast in the yellow brackets.
 #include "md.h"
 #include "assets.h"
+#include "music.h"
 
 #define CENTER 72
 #define ROUNDS_PER_LEVEL 6
@@ -110,7 +111,7 @@ static u16 phase1, phase2, phase3;
 static u16 level = 1, level_round, lives = LIVES, streak, run_best;
 static u32 score;
 static u16 pad, pad_prev, pressed;
-static u8 hud_dirty = 1, beeped, game_over_pending, won_pending;
+static u8 hud_dirty = 1, beeped, game_over_pending, won_pending, night;
 static u16 rnd_state = 12345;
 static const Toaster *T;
 static const Bread *B;
@@ -188,6 +189,7 @@ static void apply_light(void) {
     if (sky_slots[0]) vdp_set_colour(sky_slots[0], md_colour(sky));
     if (sky_slots[1]) vdp_set_colour(sky_slots[1], md_colour(darker(sky)) | 0);
     if (sky_slots[2] && L.r + L.g + L.b < 15) vdp_set_colour(sky_slots[2], md_colour(sky));  // the sun sets
+    night = L.r + L.g + L.b <= 12;  // the lamp comes on
 }
 
 // ---------- levels ----------
@@ -347,6 +349,9 @@ static void use_bread(u16 i) {
     save.bread = i;
     B = &BREADS[i];
     set_bands();
+    for (u16 y = 0; y < BREAD_H; y++)  // the loaf on the board
+        for (u16 x = 0; x < BREAD_W; x++)
+            vdp_set_tile(VRAM_PLANE_B, BREAD_X + x, BREAD_Y + y, bread_b[i][y * BREAD_W + x]);
 }
 
 // ---------- particles, flying toast, the plate and the cat ----------
@@ -686,6 +691,7 @@ static void finish_run(u16 won) {
     save_write();
 
     mode = RESULTS; results_won = won; results_at = frame;
+    music_stop();
     vdp_set_colour(COL_WORD, won ? RGB(7, 6, 2) : RGB(7, 3, 3));
     panel(5, 23);
     u16 y = 10;
@@ -708,6 +714,7 @@ static void finish_run(u16 won) {
     else { static const u16 tune[4] = {523, 440, 349, 262}; jingle(tune, 4, 13, 10); }
 }
 
+static u8 from_results;
 static void new_run(void) {
     level = 1; level_round = 0; lives = LIVES; score = 0; streak = 0; run_best = 0;
     game_over_pending = won_pending = 0;
@@ -715,6 +722,7 @@ static void new_run(void) {
     mode = PLAY;
     restore_plane_a(2, 25);
     hud_dirty = 1;
+    if (from_results) music_play();
 }
 
 // the title
@@ -727,8 +735,7 @@ static void show_title(void) {
     p = line; p = cat(p, "HIGH SCORE "); cat(p, num(save.hi[0].score, b + 15));
     print(20 - slen(line) / 2, 19, line, FONT_PANEL);
     print(5, 21, "(C) 2026 A TOASTY PRODUCTION", FONT_PANEL_DIM);
-    static const u16 tune[8] = {392, 523, 659, 784, 659, 784, 1047, 1047};
-    jingle(tune, 8, 8, 20);
+    music_play();
 }
 
 // ---------- every frame ----------
@@ -835,18 +842,27 @@ behind:
     // the toast in the slots, behind the toaster's front
     if (state != FLYING) {
         s16 vis = 11 - (8 * lever >> 8);
-        spr_add(A->slot0 - 8, A->slot_y + 2 - vis, 2, 2, ATTR(PAL_HUD, 0, 0, 0, SLOT_SLICE_TILE));
-        spr_add(A->slot1 - 8, A->slot_y + 2 - vis, 2, 2, ATTR(PAL_HUD, 0, 0, 0, SLOT_SLICE_TILE));
+        u16 tile = slice_tiles[save.bread];  // the slice drawing starts 2 pixels lower, to leave room for brioche's dome
+        spr_add(A->slot0 - 8, A->slot_y - vis, 2, 2, ATTR(PAL_HUD, 0, 0, 0, tile));
+        spr_add(A->slot1 - 8, A->slot_y - vis, 2, 2, ATTR(PAL_HUD, 0, 0, 0, tile));
     }
     for (u16 i = 0; i < plate_n; i++)
         spr_add(PX - 8, PY - 4 - i * 3, 2, 1, ATTR(PAL_HUD, 0, 0, 0, plate_tiles[plate[i] - 1]));
     cat_draw();
+    for (u16 i = 0; i < SPREAD_COUNT; i++)  // the spreads you own, on the shelf
+        if (save.owned_spreads & (1 << i)) spr_add(JAR_X + i * 20, JAR_Y, 2, 2, ATTR(jar_pals[i], 0, 0, 0, jar_tiles[i]));
+    if (night) {  // the lamp: its bulb, and a dithered pool of light under it (last, so it's the first to go if a line is full)
+        spr_add(LAMP_X - 3, LAMP_Y, 1, 1, ATTR(PAL_HUD, 1, 0, 0, BULB_TILE));
+        for (u16 i = 0; i < 12; i++)
+            if (cone_tiles[i]) spr_add(CONE_X + (i % 4) * 32, CONE_Y + (i / 4) * 32, 4, 4, ATTR(PAL_HUD, 0, 0, 0, cone_tiles[i]));
+    }
 }
 
 int main(void) {
     vdp_init();
     pad_init();
     for (u16 ch = 0; ch < 4; ch++) psg_vol(ch, 15);
+    music_init();
     save_load();
     rnd_state ^= save.rounds * 31 + save.clock;
     if (!rnd_state) rnd_state = 1;
@@ -879,6 +895,7 @@ int main(void) {
         if (hud_dirty) { draw_status(); hud_dirty = 0; }
         if (mode == TITLE) print_right(26, 17, (frame / 20) % 2 ? "PRESS START" : "           ", FONT_PANEL_GOLD);
         sound_update();
+        music_update();
 
         frame++;
         pad_prev = pad;
@@ -886,7 +903,7 @@ int main(void) {
         pressed = pad & ~pad_prev;
         if (mode == TITLE) { if (pressed & (BTN_START | BTN_A | BTN_B | BTN_C)) new_run(); }
         else if (mode == SHOP) shop_update();
-        else if (mode == RESULTS) { if (frame - results_at > 60 && (pressed & (BTN_A | BTN_B | BTN_C | BTN_START))) new_run(); }
+        else if (mode == RESULTS) { if (frame - results_at > 60 && (pressed & (BTN_A | BTN_B | BTN_C | BTN_START))) { from_results = 1; new_run(); } }
         else play_update();
         world_update();
         if ((frame & 1023) == 0) save_write();  // keep the time of day
