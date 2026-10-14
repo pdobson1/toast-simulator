@@ -2,7 +2,7 @@
 
 The toasting game as a real Sega Mega Drive ROM, written in C for the console's 68000 with no SDK: its own start-up code, a small hardware layer for the graphics chip (VDP), the controller and the sound chip (PSG), and the game.
 
-Play it in the browser on the [play page](index.html) (EmulatorJS), or load `toast.bin` into any Mega Drive emulator (BlastEm, Genesis Plus GX, Kega Fusion) or a flash cartridge on a real console.
+Play it in the browser on the [play page](index.html) (EmulatorJS 4.2.3, kept in `emulator/`; on a phone it shows one big TOAST button), or load `toast.bin` into any Mega Drive emulator (BlastEm, Genesis Plus GX, Kega Fusion) or a flash cartridge on a real console.
 
 This is the proof of concept: the kitchen, the toaster, the doneness meter, popping on time, the result words, flying toast, the plate, levels, TP and sound. Still to come from the browser version: lives and the end of a run, the shop, saving, day and night, and the cat.
 

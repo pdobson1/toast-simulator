@@ -29,6 +29,8 @@ h1 {
 .tag { margin: 0; font-family: "Press Start 2P", monospace; font-size: 9px; letter-spacing: 1px; color: var(--dim); }
 .screen { border: 4px solid #49496d; box-shadow: 0 0 0 2px var(--void), 6px 6px 0 #000000; background: #000; }
 #game { width: 100%; aspect-ratio: 4 / 3; }
+/* the on-screen TOAST button: big enough for a thumb */
+#game .ejs_virtualGamepad_button.b_a { width: 84px; height: 84px; line-height: 84px; font-size: 16px; }
 .panel { background: var(--panel); border: 2px solid var(--edge); padding: 12px 16px; }
 .panel h2 { margin: 0 0 8px; font-family: "Press Start 2P", monospace; font-weight: 400; font-size: 10px; letter-spacing: 2px; color: var(--butter); }
 .panel p, .panel ul { margin: 0; }
@@ -52,7 +54,7 @@ a { color: var(--butter); }
       <h2>CONTROLS</h2>
       <ul>
         <li><kbd>Z</kbd> <kbd>X</kbd> <kbd>S</kbd> or <kbd>Enter</kbd>: push the lever, then pop the toast.</li>
-        <li>On a phone, tap the on-screen pad's buttons.</li>
+        <li>On a phone, tap the big <b>TOAST</b> button.</li>
         <li>Pop inside the yellow brackets for a PERFECT.</li>
       </ul>
     </section>
@@ -69,7 +71,12 @@ a { color: var(--butter); }
   window.EJS_core = 'segaMD';
   window.EJS_gameUrl = 'toast.bin';
   window.EJS_gameName = 'Toast Simulator';
-  window.EJS_pathtodata = window.EJS_pathtodata || 'https://cdn.emulatorjs.org/stable/data/';
+  window.EJS_pathtodata = 'emulator/data/';  // EmulatorJS 4.2.3, kept with the game (see emulator/README.md)
+  window.EJS_DEBUG_XX = true;                 // load its scripts as they are (they aren't minified)
+  // On a phone, just what the game needs: one big button, the pad's A
+  window.EJS_VirtualGamepadSettings = [
+    { type: 'button', text: 'TOAST', id: 'a', location: 'right', right: 10, top: 40, bold: true, input_value: 1 },
+  ];
   window.EJS_color = '#ffdb49';
   window.EJS_backgroundColor = '#000024';
   window.EJS_startOnLoaded = true;
