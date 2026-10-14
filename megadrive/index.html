@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toast Simulator MD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+/* One column: the console screen, then how to play. Colours from the Mega Drive palette, like the game. */
+:root {
+  --void: #000024;
+  --panel: #242449;
+  --edge: #6d6db6;
+  --ink: #dbdbff;
+  --dim: #9292b6;
+  --butter: #ffdb49;
+  --crust: #db6d00;
+  color-scheme: dark;
+}
+html, body { margin: 0; background: var(--void); color: var(--ink); }
+body { font-family: "VT323", "Courier New", monospace; font-size: 20px; line-height: 1.25; }
+.wrap { max-width: 960px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; display: flex; flex-direction: column; gap: 16px; }
+h1 {
+  margin: 0; font-family: "Press Start 2P", monospace; font-weight: 400; font-size: clamp(18px, 4.5vw, 32px); line-height: 1.2;
+  background: linear-gradient(180deg, #ffff92, var(--butter) 40%, var(--crust)); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(3px 3px 0 #6d2400);
+}
+.tag { margin: 0; font-family: "Press Start 2P", monospace; font-size: 9px; letter-spacing: 1px; color: var(--dim); }
+.screen { border: 4px solid #49496d; box-shadow: 0 0 0 2px var(--void), 6px 6px 0 #000000; background: #000; }
+#game { width: 100%; aspect-ratio: 4 / 3; }
+.panel { background: var(--panel); border: 2px solid var(--edge); padding: 12px 16px; }
+.panel h2 { margin: 0 0 8px; font-family: "Press Start 2P", monospace; font-weight: 400; font-size: 10px; letter-spacing: 2px; color: var(--butter); }
+.panel p, .panel ul { margin: 0; }
+.panel ul { padding-left: 1.2em; }
+kbd { font-family: "Press Start 2P", monospace; font-size: 9px; background: #49496d; padding: 2px 5px; border-radius: 2px; color: #ffffff; }
+a { color: var(--butter); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>TOAST SIMULATOR MD</h1>
+    <p class="tag">A REAL MEGA DRIVE ROM, RUNNING IN AN EMULATOR</p>
+  </header>
+
+  <div class="screen"><div id="game"></div></div>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>CONTROLS</h2>
+      <ul>
+        <li><kbd>Z</kbd> <kbd>X</kbd> <kbd>S</kbd> or <kbd>Enter</kbd>: push the lever, then pop the toast.</li>
+        <li>On a phone, tap the on-screen pad's buttons.</li>
+        <li>Pop inside the yellow brackets for a PERFECT.</li>
+      </ul>
+    </section>
+    <section class="panel">
+      <h2>THE CARTRIDGE</h2>
+      <p>This is <a href="toast.bin" download>toast.bin</a>, a Mega Drive ROM written in C for the console's 68000. It runs in any Mega Drive emulator, or on a real console with a flash cartridge. The browser version is <a href="../">here</a>.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+  // EmulatorJS, running the Genesis Plus GX core
+  window.EJS_player = '#game';
+  window.EJS_core = 'segaMD';
+  window.EJS_gameUrl = 'toast.bin';
+  window.EJS_gameName = 'Toast Simulator';
+  window.EJS_pathtodata = window.EJS_pathtodata || 'https://cdn.emulatorjs.org/stable/data/';
+  window.EJS_color = '#ffdb49';
+  window.EJS_backgroundColor = '#000024';
+  window.EJS_startOnLoaded = true;
+  const loader = document.createElement('script');
+  loader.src = window.EJS_pathtodata + 'loader.js';
+  document.body.appendChild(loader);
+</script>
+</body>
+</html>
